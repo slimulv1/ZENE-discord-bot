@@ -104,6 +104,8 @@ class Config:
         "zene_core.cogs.conversation",
         "zene_core.cogs.ops",
         "zene_core.cogs.avwiki",
+        "zene_core.cogs.amlich",
+        "zene_core.cogs.giaxang",
     )
     optional_extensions: tuple[str, ...] = (
         "zene.information",
@@ -179,7 +181,7 @@ class Config:
             required_extensions=_env_csv(
                 env,
                 "ZENE_REQUIRED_EXTENSIONS",
-                "zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki",
+                "zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki,zene_core.cogs.amlich,zene_core.cogs.giaxang",
             ),
             optional_extensions=_env_csv(
                 env,

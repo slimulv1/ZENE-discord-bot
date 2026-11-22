@@ -56,6 +56,12 @@ class ZeneBot(commands.Bot):
         for extension in self.config.optional_extensions:
             await self._load_extension(extension, required=False)
 
+        try:
+            synced = await self.tree.sync()
+            log.info("slash commands synced: %d", len(synced))
+        except Exception as exc:  # noqa: BLE001 - slash sync must not block prefix bot
+            log.warning("slash sync failed: %s", exc)
+
     async def _load_extension(self, extension: str, *, required: bool) -> None:
         if extension in self.config.disabled_extensions:
             log.info("extension bị tắt bởi cấu hình: %s", extension)

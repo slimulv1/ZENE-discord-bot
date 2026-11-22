@@ -13,7 +13,7 @@ ZENE_LOG_LEVEL=INFO
 ZENE_LOG_DIR=./logs
 
 # Optional cog toggles (comma separated module paths)
-ZENE_REQUIRED_EXTENSIONS=zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki
+ZENE_REQUIRED_EXTENSIONS=zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki,zene_core.cogs.amlich,zene_core.cogs.giaxang
 ZENE_OPTIONAL_EXTENSIONS=zene.information,zene.hentai_interact,zene.wiki,zene.van_mau,zene.nhentai,zene.hannom,zene.google_trans
 ZENE_DISABLED_EXTENSIONS=
 
