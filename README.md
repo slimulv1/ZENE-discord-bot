@@ -73,6 +73,7 @@ Một số lệnh dùng được **cả hai cách** — mình ghi là "cả hai"
 | `/code <mã phim>` | Tra cứu phim theo mã |
 | `/giaxanghomnay` | Giá xăng hôm nay |
 | `/haha` | Ghép avatar của bạn vào ảnh "3 chó tuyết" |
+| `/health` | Xem bot có khỏe không (uptime, ping, số server, lỗi) |
 | `/idol <tên diễn viên>` | Xem thông tin diễn viên và vài tác phẩm |
 
 `/code` và `/idol` **chỉ dùng trong kênh NSFW** (kênh bạn bật chế độ NSFW trong
@@ -294,6 +295,12 @@ http://127.0.0.1:8080/health
 
 Thấy `status: ok` là tốt. Thấy `degraded` hoặc `503` nghĩa là bot chưa sẵn sàng
 hoặc có phần bị lỗi — xem log.
+
+Hai endpoint nhỏ cho hệ thống giám sát:
+
+- `/live` — chỉ trả lời "process còn sống", luôn `200` nếu server trả lời được.
+- `/ready` — `200` khi bot sẵn sàng nhận lệnh, `503` khi có phần bắt buộc hỏng.
+  Docker healthcheck dùng `/health`; bạn có thể dùng `/ready` cho monitor riêng.
 
 Trong Discord gõ `z/health` và `z/extensions` cũng được.
 

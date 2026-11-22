@@ -6,9 +6,11 @@ import asyncio
 import contextlib
 import json
 import logging
+import math
 import random
 import time
 from collections.abc import Callable
+from datetime import datetime, timezone
 
 import discord
 
@@ -162,16 +164,36 @@ class Supervisor:
     def _health_payload(self) -> tuple[dict, bool]:
         bot = self._bot
         ready = bool(bot is not None and bot.is_ready())
-        degraded = bool(bot is not None and (bot.failed_extensions or bot.stats["missing_assets"]))
+        failed = sorted(bot.failed_extensions) if bot else []
+        stats = dict(bot.stats) if bot else {}
+        missing_assets = stats.get("missing_assets", 0)
+        degraded = bool(failed or missing_assets)
         healthy = ready and not degraded and not self.state.shutdown_requested
+
+        uptime = max(1.0, time.monotonic() - self.started_at)
+        raw_latency = getattr(bot, "latency", float("nan"))
+        latency = round(raw_latency * 1000, 1) if math.isfinite(raw_latency) else None
+        trigger_hits = stats.get("trigger_hits", 0)
+        checks = {
+            "gateway": "pass" if ready else "fail",
+            "extensions": "warn" if failed else "pass",
+            "assets": "warn" if missing_assets else "pass",
+        }
+        status = "ok" if healthy else ("down" if not ready else "degraded")
         payload = {
-            "status": "ok" if healthy else "degraded",
+            "status": status,
             "ready": ready,
-            "uptime_seconds": round(time.monotonic() - self.started_at, 1),
+            "uptime_seconds": round(uptime, 1),
             "restarts": self.state.restarts,
-            "failed_extensions": sorted(bot.failed_extensions) if bot else [],
-            "stats": dict(bot.stats) if bot else {},
-            "asset_commands": bot.assets.command_count if bot else 0,
+            "latency_ms": latency,
+            "guilds": len(getattr(bot, "guilds", []) or []),
+            "commands": len(getattr(bot, "commands", []) or []),
+            "triggers_per_hour": round(trigger_hits * 3600 / uptime, 1) if uptime >= 60 else 0,
+            "failed_extensions": failed,
+            "stats": stats,
+            "asset_commands": getattr(getattr(bot, "assets", None), "command_count", 0),
+            "checks": checks,
+            "observed_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
         return payload, healthy
 
@@ -196,6 +218,22 @@ class Supervisor:
                 raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
                 content_type = "application/json; charset=utf-8"
                 status_line = "200 OK" if healthy else "503 Service Unavailable"
+            elif path == "/ready":
+                # Readiness: required checks only. Never restart on optional failures.
+                payload, ready_ok = self._health_payload()
+                body = {
+                    "status": "ok" if ready_ok else "fail",
+                    "ready": payload["ready"],
+                    "checks": payload["checks"],
+                }
+                raw = json.dumps(body, ensure_ascii=False).encode("utf-8")
+                content_type = "application/json; charset=utf-8"
+                status_line = "200 OK" if ready_ok else "503 Service Unavailable"
+            elif path == "/live":
+                # Liveness: shallow. If this route answers, the process is alive.
+                raw = b'{"status":"alive"}'
+                content_type = "application/json; charset=utf-8"
+                status_line = "200 OK"
             elif path == "/favicon.ico":
                 raw = b""
                 content_type = "image/x-icon"
@@ -210,6 +248,7 @@ class Supervisor:
                 f"Content-Type: {content_type}\r\n"
                 f"Content-Length: {len(raw)}\r\n"
                 "Cache-Control: no-store\r\n"
+                "X-Content-Type-Options: nosniff\r\n"
                 "Connection: close\r\n\r\n"
             ).encode("ascii")
             writer.write(header + raw)

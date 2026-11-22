@@ -58,6 +58,11 @@ DASHBOARD_HTML = """<!doctype html>
     display: inline-block; background: var(--surface-2); border: 1px solid var(--border);
     border-radius: 999px; padding: 4px 12px; font-size: .82rem; margin: 2px 4px 2px 0;
   }
+  .checks { margin-top: 10px; display: flex; gap: 8px; flex-wrap: wrap; }
+  .check { font-size: .78rem; padding: 3px 10px; border-radius: 999px; border: 1px solid var(--border); background: var(--surface-2); }
+  .check.pass::before { content: "✓ "; color: var(--ok); }
+  .check.warn::before { content: "⚠ "; color: var(--warn); }
+  .check.fail::before { content: "✗ "; color: var(--bad); }
   table { width: 100%; border-collapse: collapse; font-size: .9rem; }
   td { padding: 7px 4px; border-bottom: 1px solid var(--border); }
   td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
@@ -78,6 +83,7 @@ DASHBOARD_HTML = """<!doctype html>
     <div>
       <strong id="headline">Đang kiểm tra…</strong>
       <span id="detail">Đang lấy dữ liệu từ /health</span>
+      <div class="checks" id="checks"></div>
     </div>
   </div>
 
@@ -87,6 +93,9 @@ DASHBOARD_HTML = """<!doctype html>
     <div class="card"><div class="label">Số lần khởi động lại</div><div class="value" id="restarts">—</div><div class="hint">cả crash lẫn restart tay</div></div>
     <div class="card"><div class="label">Meme đã phản hồi</div><div class="value" id="triggers">—</div><div class="hint">trigger tự động</div></div>
     <div class="card"><div class="label">Lệnh asset</div><div class="value" id="assets">—</div><div class="hint">cụm từ gửi ảnh/video</div></div>
+    <div class="card"><div class="label">Ping Discord</div><div class="value" id="ping">—</div><div class="hint">độ trễ gateway</div></div>
+    <div class="card"><div class="label">Meme / giờ</div><div class="value" id="rate">—</div><div class="hint">tốc độ phản hồi trung bình</div></div>
+    <div class="card"><div class="label">Server đang ở</div><div class="value" id="guilds">—</div><div class="hint">số guild đã tham gia</div></div>
   </div>
 
   <h2>Chi tiết</h2>
@@ -102,8 +111,8 @@ DASHBOARD_HTML = """<!doctype html>
   </div>
 
   <footer>
-    Xem dữ liệu thô tại <a href="/health">/health</a> ·
-    cập nhật lần cuối <span id="updated">—</span>
+    Dữ liệu: <a href="/health">/health</a> · <a href="/ready">/ready</a> · <a href="/live">/live</a>
+    · cập nhật <span id="updated">—</span> <span id="countdown"></span>
   </footer>
 </div>
 
@@ -120,6 +129,12 @@ function fmtUptime(sec) {
   return s + "s";
 }
 
+const esc = (value) => String(value).replace(/[&<>"']/g, (c) => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+));
+
+let nextRefresh = Date.now() + 5000;
+
 async function refresh() {
   try {
     const res = await fetch("/health", { cache: "no-store" });
@@ -129,24 +144,32 @@ async function refresh() {
 
     document.getElementById("dot").className = "dot " + (ok ? "ok" : (ready ? "" : "bad"));
     document.getElementById("headline").textContent =
-      ok ? "Bot đang chạy tốt" : (ready ? "Bot chạy nhưng cần kiểm tra" : "Bot chưa sẵn sàng");
+      ok ? "Bot đang chạy tốt ✓" : (ready ? "Bot chạy nhưng cần kiểm tra ⚠" : "Bot chưa sẵn sàng ✗");
     document.getElementById("detail").textContent =
       ok ? "Sẵn sàng nhận lệnh" : "Xem chi tiết bên dưới hoặc logs/zene.log";
+
+    const checks = data.checks || {};
+    document.getElementById("checks").innerHTML = Object.entries(checks)
+      .map(([name, state]) => '<span class="check ' + esc(state) + '">' + esc(name) + ": " + esc(state) + "</span>")
+      .join("");
 
     document.getElementById("uptime").textContent = fmtUptime(data.uptime_seconds);
     document.getElementById("restarts").textContent = data.restarts ?? 0;
     document.getElementById("triggers").textContent = (data.stats && data.stats.trigger_hits) || 0;
     document.getElementById("assets").textContent = data.asset_commands ?? 0;
+    document.getElementById("ping").textContent = data.latency_ms == null ? "—" : data.latency_ms + " ms";
+    document.getElementById("rate").textContent = data.triggers_per_hour ?? 0;
+    document.getElementById("guilds").textContent = data.guilds ?? 0;
 
     const failed = data.failed_extensions || [];
     document.getElementById("extensions").innerHTML = failed.length
-      ? failed.map(x => '<span class="chip">' + x + '</span>').join("")
+      ? failed.map((x) => '<span class="chip">' + esc(x) + "</span>").join("")
       : '<span class="chip">Không có lỗi nào 🎉</span>';
 
     const stats = data.stats || {};
     const rows = Object.entries(stats).sort((a, b) => b[1] - a[1]);
     document.getElementById("stats").innerHTML = rows.length
-      ? rows.map(([k, v]) => "<tr><td>" + k + "</td><td>" + v + "</td></tr>").join("")
+      ? rows.map(([k, v]) => "<tr><td>" + esc(k) + "</td><td>" + esc(v) + "</td></tr>").join("")
       : '<tr><td>(chưa có sự kiện)</td><td>0</td></tr>';
 
     document.getElementById("updated").textContent = new Date().toLocaleTimeString("vi-VN");
@@ -154,10 +177,15 @@ async function refresh() {
     document.getElementById("headline").textContent = "Không đọc được /health";
     document.getElementById("detail").textContent = String(err);
   }
+  nextRefresh = Date.now() + 5000;
 }
 
 refresh();
 setInterval(refresh, 5000);
+setInterval(() => {
+  const left = Math.max(0, Math.ceil((nextRefresh - Date.now()) / 1000));
+  document.getElementById("countdown").textContent = "(sau " + left + "s)";
+}, 1000);
 </script>
 </body>
 </html>

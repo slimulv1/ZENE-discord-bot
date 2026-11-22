@@ -221,6 +221,15 @@ folder + 1 choice + 5 command text + 7 stories). `content.py` giờ là loader m
 Kết luận: giữ **lệnh prefix cho tác vụ cần kiểm soát**, **hybrid cho lệnh hay dùng**,
 **trigger tự động chỉ cho meme ngắn có cooldown**, và đưa toàn bộ nội dung về JSON.
 
+## 5f. Đào sâu tài liệu health/dashboard (Context7 + web research)
+
+| Kiến thức tìm được | Áp dụng |
+|---|---|
+| Azure/Kubernetes: tách liveness (shallow) và readiness (deep); liveness không được gọi dependency ngoài, readiness mới xét dependency | Thêm `/live` (luôn 200 nếu process trả lời) và `/ready` (200/503 tuỳ gateway + extension + asset) |
+| IETF health draft + các hướng dẫn monitoring: status code là "phán quyết", degraded phải trả 503, `Cache-Control: no-store`, không lộ secret/version/hostname | `/health` trả 200/503 thật; thêm `no-store` và `X-Content-Type-Options: nosniff`; body chỉ chứa tên check + số đếm |
+| Grafana/EUI: phân cấp thị giác, số liệu quan trọng ở trên/trái, tránh dùng riêng màu đỏ/xanh | Dashboard giữ banner trạng thái ở trên, thêm icon ✓/⚠/✗ cạnh màu, bổ sung ping + trigger/hour + guild |
+| Discord docs: hybrid command, cooldown app riêng, embed tối đa 25 field / 1024 ký tự field / 6000 tổng | `z/health` → hybrid `/health`, embed 8 field (~211 ký tự), cooldown 5s cho cả slash lẫn prefix |
+
 ## 6. Ma trận quyết định thiết kế (ghi lại để tránh "over-engineer sai chỗ")
 
 | Ý tưởng bị loại | Lý do |
