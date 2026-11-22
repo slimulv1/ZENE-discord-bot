@@ -16,7 +16,7 @@ class information(commands.Cog):
                 await ctx.send(f'```Đồng Chí: {member.name}\nGiới Tính: {sex0}\nTrạng Thái: {economic0}```')
             elif member.id == 797507405587677185:
                 await ctx.send('Yamete kudasai!!!! Oniiiii-chan')
-            elif member.id == 323427262194253825 and 347588077272694785:
+            elif member.id in (323427262194253825, 347588077272694785):
                 sex0 = 'Không thể xác định'
                 economic0 = 'Daiza'
                 await ctx.send(f'```Đồng Chí: {member.name}\nGiới Tính: {sex0}\nTrạng Thái: {economic0}```')

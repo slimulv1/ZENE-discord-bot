@@ -1,0 +1,18 @@
+services:
+  zene:
+    build: .
+    image: zene-discord-bot:latest
+    container_name: zene-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN}
+      HEALTH_HOST: 0.0.0.0
+      HEALTH_PORT: 8080
+    volumes:
+      - ./logs:/app/logs
+      - ./zene/data:/app/zene/data:ro
+    ports:
+      - "8080:8080"
+    stop_grace_period: 30s

@@ -1,0 +1,19 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+zene/TOKEN.json
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# Runtime output
+logs/
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
