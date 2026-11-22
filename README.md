@@ -9,6 +9,7 @@
 
 <p align="center">
   🐾 Meme &nbsp;•&nbsp; 🎬 Ảnh/video &nbsp;•&nbsp; 📅 Âm lịch &nbsp;•&nbsp; ⛽ Giá xăng &nbsp;•&nbsp; 🩺 Tự hồi phục &nbsp;•&nbsp; 🍬 Dễ thêm meme
+  <br><sub>📄 PolyForm Noncommercial 1.0.0 · dùng/sửa thoải mái, không bán lợi nhuận</sub>
 </p>
 
 > **💡 Mới dùng?** Đọc mục 1 (lệnh) → mục 3 (tạo bot) → mục 1 (cài đặt). Có lỗi thì nhảy tới mục 7.
@@ -382,6 +383,21 @@ tests/                  unit test
 
 > `main.py` và `zene/communicate.py` là bản legacy, chỉ giữ để rollback.
 > Chạy production luôn dùng `run.py`.
+
+---
+
+## 📄 10. Bản quyền
+
+Repo dùng giấy phép **PolyForm Noncommercial 1.0.0** (mã SPDX: `PolyForm-Noncommercial-1.0.0`).
+
+Nói đơn giản:
+
+- ✅ Bạn được **dùng, sửa, fork, chia sẻ** cho mục đích không kiếm lời: cá nhân, học tập, giải trí, server cộng đồng…
+- ✅ Khi phát hành lại, giữ dòng `Required Notice` và file [LICENSE](LICENSE).
+- ❌ **Không được bán bot**, thu tiền cung cấp dịch vụ bot, hoặc đưa vào sản phẩm thương mại.
+- Muốn dùng thương mại → liên hệ chủ repo để xin giấy phép riêng.
+
+Toàn văn nằm trong file [LICENSE](LICENSE). Đây **không phải** giấy phép "open source" theo OSI vì có điều kiện phi thương mại.
 
 ---
 
