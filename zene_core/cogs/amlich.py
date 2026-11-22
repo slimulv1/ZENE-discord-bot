@@ -6,6 +6,7 @@ import logging
 from datetime import date
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 log = logging.getLogger(__name__)
@@ -92,6 +93,8 @@ class AmLich(commands.Cog):
         self.bot = bot
 
     @commands.hybrid_command(name="amlich", description="Âm lịch hôm nay")
+    @app_commands.checks.cooldown(1, 5)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def amlich(self, ctx: commands.Context) -> None:
         try:
             await ctx.defer()

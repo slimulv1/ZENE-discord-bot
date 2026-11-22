@@ -6,6 +6,7 @@ from datetime import date
 
 import discord
 from cachetools import TTLCache
+from discord import app_commands
 from discord.ext import commands
 
 from ..net import fetch_json
@@ -87,6 +88,8 @@ class GiaXang(commands.Cog):
         self.bot = bot
 
     @commands.hybrid_command(name="giaxanghomnay", description="Giá xăng hôm nay")
+    @app_commands.checks.cooldown(1, 5)
+    @commands.cooldown(1, 5, commands.BucketType.user)
     async def giaxanghomnay(self, ctx: commands.Context) -> None:
         try:
             await ctx.defer()

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from ..avwiki import (
@@ -23,11 +24,23 @@ def _clip(text: str, size: int = 900) -> str:
 class AvWikiCog(commands.Cog):
     def __init__(self, bot) -> None:
         self.bot = bot
+        # Mark the slash form NSFW; the prefix form is gated at runtime below.
+        self.code.app_command.nsfw = True
+        self.idol.app_command.nsfw = True
 
-    @commands.command(name="code")
+    @commands.hybrid_command(
+        name="code",
+        description="Tra cứu phim theo mã (chỉ kênh NSFW)",
+    )
+    @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def code(self, ctx: commands.Context, *, arg: str) -> None:
-        if not ctx.channel.is_nsfw():
+        try:
+            await ctx.defer()
+        except Exception:
+            pass
+        channel = getattr(ctx, "channel", None)
+        if channel is None or not channel.is_nsfw():
             await self.bot.safe_send(ctx, NOT_NSFW)
             return
         results = await search_code(arg)
@@ -75,10 +88,19 @@ class AvWikiCog(commands.Cog):
         embed.set_footer(text=source_note)
         await self.bot.safe_send(ctx, embed=embed)
 
-    @commands.command(name="idol")
+    @commands.hybrid_command(
+        name="idol",
+        description="Tra cứu diễn viên (chỉ kênh NSFW)",
+    )
+    @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def idol(self, ctx: commands.Context, *, arg: str) -> None:
-        if not ctx.channel.is_nsfw():
+        try:
+            await ctx.defer()
+        except Exception:
+            pass
+        channel = getattr(ctx, "channel", None)
+        if channel is None or not channel.is_nsfw():
             await self.bot.safe_send(ctx, NOT_NSFW)
             return
         result = await search_idol(arg)
