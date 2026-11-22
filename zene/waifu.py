@@ -1,17 +1,22 @@
-from discord.ext import commands
-import requests
-import json
+"""Legacy waifu command (not loaded by default — duplicate of hentai_interact)."""
 
-class hentai_random(commands.Cog):
-    def __init__(self,bot):
+from discord.ext import commands
+
+from zene_core.net import fetch_json
+
+URL = "https://api.waifu.pics/sfw/waifu"
+
+
+class Waifu(commands.Cog):
+    def __init__(self, bot):
         self.bot = bot
 
-    @commands.command()
-    async def waifu(self,ctx):
-        url = 'https://api.waifu.pics/sfw/waifu'
-        a = json.dumps(requests.get(url).json())
-        data = json.loads(a)
-        await ctx.send(data["url"])
+    @commands.command(name="waifu")
+    async def waifu(self, ctx):
+        payload = await fetch_json(URL, name="waifu-api")
+        image = payload.get("url") if isinstance(payload, dict) else None
+        await ctx.send(image if image else "API tạm thời không khả dụng.")
+
 
 async def setup(bot):
-    await bot.add_cog(hentai_random(bot))
+    await bot.add_cog(Waifu(bot))

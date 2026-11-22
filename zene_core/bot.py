@@ -1,11 +1,11 @@
 """The bot subclass: boot, load, observe, degrade, shut down cleanly."""
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import time
 from collections import Counter
-from typing import Optional
 
 import discord
 from discord import app_commands
@@ -95,9 +95,7 @@ class ZeneBot(commands.Bot):
             self.ready_once = True
             log.info("READY as %s | guilds=%d", self.user, len(self.guilds))
             try:
-                await self.change_presence(
-                    activity=discord.Game(name=self.config.presence_name)
-                )
+                await self.change_presence(activity=discord.Game(name=self.config.presence_name))
             except discord.HTTPException as exc:
                 log.warning("Không đổi được presence: %s", exc)
 
@@ -156,13 +154,15 @@ class ZeneBot(commands.Bot):
             pass
 
     # --------------------------------------------------------------- helpers --
-    async def safe_send(self, target, content: Optional[str] = None, **kwargs):
+    async def safe_send(self, target, content: str | None = None, **kwargs):
         """Send without ever letting a Discord HTTP error escape into an event."""
         try:
             async with self._send_semaphore:
                 return await target.send(content=content, **kwargs)
         except discord.Forbidden:
-            log.warning("Không gửi được tới kênh %s (thiếu quyền)", getattr(target, "channel", target))
+            log.warning(
+                "Không gửi được tới kênh %s (thiếu quyền)", getattr(target, "channel", target)
+            )
         except discord.HTTPException as exc:
             log.warning("HTTP error khi gửi tin nhắn: %s", exc)
         except asyncio.CancelledError:
@@ -171,7 +171,7 @@ class ZeneBot(commands.Bot):
             log.error("lỗi gửi không xác định: %s", exc)
         return None
 
-    async def send_asset(self, target, relative: str, filename: Optional[str] = None):
+    async def send_asset(self, target, relative: str, filename: str | None = None):
         file = await self.assets.discord_file(relative, filename)
         if file is None:
             self.stats["missing_assets"] += 1

@@ -1,7 +1,9 @@
 """Lunar calendar command (prefix + slash)."""
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 from datetime import date
 
@@ -12,9 +14,18 @@ from discord.ext import commands
 log = logging.getLogger(__name__)
 
 ZODIAC_EMOJI = {
-    "Tý": "🐁", "Sửu": "🐃", "Dần": "🐅", "Mão": "🐈",
-    "Thìn": "🐉", "Tỵ": "🐍", "Ngọ": "🐎", "Mùi": "🐐",
-    "Thân": "🐒", "Dậu": "🐤", "Tuất": "🐕", "Hợi": "🐖",
+    "Tý": "🐁",
+    "Sửu": "🐃",
+    "Dần": "🐅",
+    "Mão": "🐈",
+    "Thìn": "🐉",
+    "Tỵ": "🐍",
+    "Ngọ": "🐎",
+    "Mùi": "🐐",
+    "Thân": "🐒",
+    "Dậu": "🐤",
+    "Tuất": "🐕",
+    "Hợi": "🐖",
 }
 
 
@@ -58,9 +69,7 @@ def _render(today: date) -> discord.Embed:
     hour_lines = []
     for item in hours:
         if isinstance(item, dict):
-            hour_lines.append(
-                f"{item.get('hour_name', '')}: {item.get('time_range', '')}".strip()
-            )
+            hour_lines.append(f"{item.get('hour_name', '')}: {item.get('time_range', '')}".strip())
         else:
             hour_lines.append(str(item))
 
@@ -96,13 +105,11 @@ class AmLich(commands.Cog):
     @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def amlich(self, ctx: commands.Context) -> None:
-        try:
+        with contextlib.suppress(discord.HTTPException, discord.ClientException):
             await ctx.defer()
-        except Exception as exc:  # prefix invocation may not need defer at all
-            log.debug("defer failed: %s", exc)
         try:
             embed = await asyncio.to_thread(_render, date.today())
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - vnlunar can raise many shapes
             await self.bot.safe_send(ctx, f"Không lấy được âm lịch: {exc}")
             return
         await self.bot.safe_send(ctx, embed=embed)

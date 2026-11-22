@@ -3,14 +3,16 @@
 Everything here is async-safe and event-loop friendly: delays use
 ``asyncio.sleep``, never ``time.sleep``.
 """
+
 from __future__ import annotations
 
 import asyncio
 import logging
 import random
 import time
+from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any
 
 log = logging.getLogger(__name__)
 
@@ -32,7 +34,7 @@ class RetryPolicy:
         *args: Any,
         **kwargs: Any,
     ) -> Any:
-        last: Optional[BaseException] = None
+        last: BaseException | None = None
         name = getattr(func, "__qualname__", str(func))
         for attempt in range(1, max(1, self.attempts) + 1):
             try:
@@ -80,10 +82,7 @@ class CircuitBreaker:
 
     @property
     def state(self) -> str:
-        if (
-            self._state == self.OPEN
-            and time.monotonic() - self._opened_at >= self.recovery_seconds
-        ):
+        if self._state == self.OPEN and time.monotonic() - self._opened_at >= self.recovery_seconds:
             return self.HALF_OPEN
         return self._state
 
@@ -125,7 +124,7 @@ async def call_with_breaker(
     func: Callable[..., Awaitable[Any]],
     *args: Any,
     fallback: Any = None,
-    policy: Optional[RetryPolicy] = None,
+    policy: RetryPolicy | None = None,
     **kwargs: Any,
 ) -> Any:
     """Run an external call behind a breaker; return ``fallback`` when degraded."""
@@ -145,7 +144,7 @@ async def call_with_breaker(
 class TokenBucket:
     """Async token bucket for per-key soft rate limiting."""
 
-    def __init__(self, rate: float, capacity: Optional[float] = None) -> None:
+    def __init__(self, rate: float, capacity: float | None = None) -> None:
         self.rate = max(0.001, rate)
         self.capacity = max(1.0, capacity if capacity is not None else rate)
         self._tokens = self.capacity
@@ -156,9 +155,7 @@ class TokenBucket:
         """Return the number of seconds the caller should wait (0 = allowed)."""
         async with self._lock:
             now = time.monotonic()
-            self._tokens = min(
-                self.capacity, self._tokens + (now - self._updated) * self.rate
-            )
+            self._tokens = min(self.capacity, self._tokens + (now - self._updated) * self.rate)
             self._updated = now
             if self._tokens >= tokens:
                 self._tokens -= tokens

@@ -4,12 +4,13 @@ Why: discord.py already ships aiohttp. Reusing one ClientSession avoids a new
 TCP/TLS handshake per command and keeps DNS cached, which matters for the
 24/7 uptime goal. All calls still go through the circuit breaker registry.
 """
+
 from __future__ import annotations
 
 import asyncio
 import json
 import logging
-from typing import Any, Optional
+from typing import Any
 
 import aiohttp
 
@@ -19,7 +20,7 @@ log = logging.getLogger(__name__)
 
 _BREAKERS: dict[str, CircuitBreaker] = {}
 _POLICY = RetryPolicy(attempts=2, base_delay=0.3, max_delay=1.5, jitter=0.2)
-_SESSION: Optional[aiohttp.ClientSession] = None
+_SESSION: aiohttp.ClientSession | None = None
 _SESSION_LOCK = asyncio.Lock()
 
 
@@ -45,9 +46,7 @@ async def get_session() -> aiohttp.ClientSession:
             if _SESSION is None or _SESSION.closed:
                 connector = aiohttp.TCPConnector(limit=20, ttl_dns_cache=300)
                 timeout = aiohttp.ClientTimeout(total=15)
-                _SESSION = aiohttp.ClientSession(
-                    connector=connector, timeout=timeout
-                )
+                _SESSION = aiohttp.ClientSession(connector=connector, timeout=timeout)
                 log.info("aiohttp session created")
     return _SESSION
 
@@ -64,8 +63,8 @@ async def _request(
     url: str,
     *,
     timeout: float,
-    headers: Optional[dict[str, str]] = None,
-    data: Optional[bytes] = None,
+    headers: dict[str, str] | None = None,
+    data: bytes | None = None,
 ) -> bytes:
     session = await get_session()
     request_timeout = aiohttp.ClientTimeout(total=max(1.0, timeout))
@@ -81,18 +80,16 @@ async def _request(
 async def fetch_json(
     url: str,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     timeout: float = 10.0,
-) -> Optional[Any]:
+) -> Any | None:
     """Return parsed JSON, or ``None`` when the dependency is degraded."""
 
     async def call() -> Any:
         raw = await _request("GET", url, timeout=timeout)
         return json.loads(raw)
 
-    result = await call_with_breaker(
-        _breaker(name or url), call, fallback=None, policy=_POLICY
-    )
+    result = await call_with_breaker(_breaker(name or url), call, fallback=None, policy=_POLICY)
     if result is None:
         log.info("external API degraded: %s", name or url)
     return result
@@ -101,21 +98,17 @@ async def fetch_json(
 async def fetch_text(
     url: str,
     *,
-    name: Optional[str] = None,
+    name: str | None = None,
     timeout: float = 10.0,
     method: str = "GET",
-    headers: Optional[dict[str, str]] = None,
-    data: Optional[bytes] = None,
-) -> Optional[str]:
+    headers: dict[str, str] | None = None,
+    data: bytes | None = None,
+) -> str | None:
     async def call() -> str:
-        raw = await _request(
-            method, url, timeout=timeout, headers=headers, data=data
-        )
+        raw = await _request(method, url, timeout=timeout, headers=headers, data=data)
         return raw.decode("utf-8", "replace")
 
-    return await call_with_breaker(
-        _breaker(name or url), call, fallback=None, policy=_POLICY
-    )
+    return await call_with_breaker(_breaker(name or url), call, fallback=None, policy=_POLICY)
 
 
 def breaker_snapshot() -> dict[str, str]:

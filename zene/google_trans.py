@@ -1,7 +1,10 @@
 import asyncio
+import logging
 
 from deep_translator import GoogleTranslator
 from discord.ext import commands
+
+log = logging.getLogger(__name__)
 
 
 class translate(commands.Cog):
@@ -11,12 +14,13 @@ class translate(commands.Cog):
     @commands.command()
     async def trans(self, ctx, *, arg):
         def work():
-            return GoogleTranslator(source='auto', target='vi').translate(str(arg))
+            return GoogleTranslator(source="auto", target="vi").translate(str(arg))
 
         try:
             await ctx.reply(await asyncio.to_thread(work))
-        except Exception:
-            await ctx.reply('http://translate.google.com/')
+        except Exception as exc:  # noqa: BLE001 - translator SDK boundary
+            log.warning("translate failed: %s", exc)
+            await ctx.reply("http://translate.google.com/")
 
 
 async def setup(bot):

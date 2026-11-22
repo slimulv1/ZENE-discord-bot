@@ -1,4 +1,5 @@
 """Pure-logic regression tests — chạy: python -m unittest discover -s tests -v"""
+
 from __future__ import annotations
 
 import asyncio
@@ -33,20 +34,19 @@ class ConfigTests(unittest.TestCase):
         self.assertNotIn("fake-token", config.summary())
 
     def test_missing_token_raises(self) -> None:
-        with tempfile.TemporaryDirectory() as tmp:
-            missing = Path(tmp) / "TOKEN.json"
-            with patch("zene_core.config.DEFAULT_TOKEN_FILE", missing):
-                with self.assertRaises(ConfigurationError):
-                    Config.from_env({})
+        with (
+            tempfile.TemporaryDirectory() as tmp,
+            patch("zene_core.config.DEFAULT_TOKEN_FILE", Path(tmp) / "TOKEN.json"),
+            self.assertRaises(ConfigurationError),
+        ):
+            Config.from_env({})
 
 
 class TriggerTests(unittest.TestCase):
     def test_exact_contains_and_unicode(self) -> None:
         registry = TriggerRegistry()
         registry.add(Trigger("a", "exact", "xin chào", Response("text", "1")))
-        registry.add(
-            Trigger("b", "contains", "siuu", Response("text", "2"), priority=10)
-        )
+        registry.add(Trigger("b", "contains", "siuu", Response("text", "2"), priority=10))
         registry.finalize()
 
         self.assertEqual(registry.match("XIN CHÀO").trigger.name, "a")
@@ -84,9 +84,7 @@ class BreakerTests(unittest.IsolatedAsyncioTestCase):
         async def boom() -> str:
             raise RuntimeError("down")
 
-        result = await resilience.call_with_breaker(
-            breaker, boom, fallback=lambda: "degraded"
-        )
+        result = await resilience.call_with_breaker(breaker, boom, fallback=lambda: "degraded")
         self.assertEqual(result, "degraded")
 
     async def test_token_bucket(self) -> None:

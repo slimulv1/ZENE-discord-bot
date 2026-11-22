@@ -1,16 +1,16 @@
 #!/usr/bin/python
-# -*- coding: utf-8 -*-
 import asyncio
+import json
 from io import BytesIO
 from pathlib import Path
 
 import discord
-from discord.ext import commands
-from deep_translator import GoogleTranslator
-from PIL import Image, ImageFilter
 import requests
+from deep_translator import GoogleTranslator
+from discord.ext import commands
+from PIL import Image, ImageFilter
+
 import dmm
-import json
 
 
 def _first_actress(payload):
@@ -48,22 +48,23 @@ def _credentials(bot):
         return "", ""
     return data.get("DMM_API_ID", ""), data.get("DMM_AFFILIATE_ID", "")
 
+
 class dmm_tracker(commands.Cog):
-    def __init__(self,bot):
+    def __init__(self, bot):
         self.bot = bot
 
     @commands.command()
-    async def code (self, ctx, *, arg:str):
-        if '-' in arg:
-            arg = arg.replace('-','00')
-        
+    async def code(self, ctx, *, arg: str):
+        if "-" in arg:
+            arg = arg.replace("-", "00")
+
         api_id, affiliate_id = _credentials(self.bot)
 
         api = dmm.API(api_id=api_id, affiliate_id=affiliate_id)
 
         item_search = await asyncio.wait_for(
             asyncio.to_thread(
-                api.item_search, site="FANZA", service='digital', keyword=arg, output='json'
+                api.item_search, site="FANZA", service="digital", keyword=arg, output="json"
             ),
             timeout=15,
         )
@@ -84,58 +85,45 @@ class dmm_tracker(commands.Cog):
         date = item.get("date", "")
         product_id = item.get("product_id", "")
 
-        #embed_description = []
         actress_lst = []
         price_lst = []
 
-        #try: 
-            #sampleURL = item["sampleMovieURL"]["size_476_306"]
-            #embed_description = f'[Xem thử ngay]({sampleURL})'
-
-        #except:
-            #embed_description=[]
-
-
-
         try:
-
             for price in item["prices"]["deliveries"]["delivery"][0:3]:
-                price_lst.append(price["price"] + ' JPY')
-
-        except:
-            price_lst = ['None']
+                price_lst.append(price["price"] + " JPY")
+        except (KeyError, TypeError, IndexError):
+            price_lst = ["None"]
 
         try:
             for actress_name in item["iteminfo"]["actress"]:
-                actress_lst.append(f'**{actress_name["name"]}**' + f'【{actress_name["ruby"]}】')
-        
-        except:
-            actress_lst = ['None']
-            
-        code_translator = GoogleTranslator(source = 'ja', target = 'vi')
+                actress_lst.append(f"**{actress_name['name']}**【{actress_name['ruby']}】")
+        except (KeyError, TypeError, IndexError):
+            actress_lst = ["None"]
 
-        
+        code_translator = GoogleTranslator(source="ja", target="vi")
+
         if ctx.channel.is_nsfw():
             embed_Image = image_url
-            
+
             code_embed = discord.Embed(
-                color = discord.Colour.blurple(),
-                title = product_id.upper(),
-                #url = affiliate_url,
-                description = f'[**{await _translate(code_translator, product_title)}**]({affiliate_url})'
-                #description = ''.join(embed_description)
+                color=discord.Colour.blurple(),
+                title=product_id.upper(),
+                # url = affiliate_url,
+                description=f"[**{await _translate(code_translator, product_title)}**]({affiliate_url})",
+                # description = ''.join(embed_description)
             )
 
-            #code_embed.set_thumbnail(url = image_url)
-            code_embed.add_field(name = 'Ai Đồ', value = '\n'.join(actress_lst))
-            code_embed.add_field(name = 'Giá', value = '\n'.join(price_lst))
-            #code_embed.add_field(name = 'Sample', value = f'[Sample]({sampleURL})')
-            code_embed.set_image(url = embed_Image)
-            code_embed.set_footer(text = f'{mega} {date} {volume} phút')
+            # code_embed.set_thumbnail(url = image_url)
+            code_embed.add_field(name="Ai Đồ", value="\n".join(actress_lst))
+            code_embed.add_field(name="Giá", value="\n".join(price_lst))
+            # code_embed.add_field(name = 'Sample', value = f'[Sample]({sampleURL})')
+            code_embed.set_image(url=embed_Image)
+            code_embed.set_footer(text=f"{mega} {date} {volume} phút")
 
             await ctx.send(embed=code_embed)
-            
+
         else:
+
             def _blur_in_thread():
                 response = requests.get(image_url, timeout=10)
                 response.raise_for_status()
@@ -150,39 +138,35 @@ class dmm_tracker(commands.Cog):
             output = await asyncio.to_thread(_blur_in_thread)
             file = discord.File(output, filename="image.png")
             embed_Image = "attachment://image.png"
- 
+
             code_embed = discord.Embed(
-                color = discord.Colour.blurple(),
-                title = product_id.upper(),
-                #url = affiliate_url,
-                description = f'[**{await _translate(code_translator, product_title)}**]({affiliate_url})'
-                #description = ''.join(embed_description)
+                color=discord.Colour.blurple(),
+                title=product_id.upper(),
+                # url = affiliate_url,
+                description=f"[**{await _translate(code_translator, product_title)}**]({affiliate_url})",
+                # description = ''.join(embed_description)
             )
 
-            #code_embed.set_thumbnail(url = image_url)
-            code_embed.add_field(name = 'Ai Đồ', value = '\n'.join(actress_lst))
-            code_embed.add_field(name = 'Giá', value = '\n'.join(price_lst))
-            #code_embed.add_field(name = 'Sample', value = f'[Sample]({sampleURL})')
-            code_embed.set_image(url = embed_Image)
-            code_embed.set_footer(text = f'{mega} {date} {volume} phút')
+            # code_embed.set_thumbnail(url = image_url)
+            code_embed.add_field(name="Ai Đồ", value="\n".join(actress_lst))
+            code_embed.add_field(name="Giá", value="\n".join(price_lst))
+            # code_embed.add_field(name = 'Sample', value = f'[Sample]({sampleURL})')
+            code_embed.set_image(url=embed_Image)
+            code_embed.set_footer(text=f"{mega} {date} {volume} phút")
 
             await ctx.send(file=file, embed=code_embed)
 
-        pass
-
     @commands.command()
-    async def idol (self, ctx, *, arg:str):
-        if '-' in arg:
-            arg = arg.replace('-','00')
-        
+    async def idol(self, ctx, *, arg: str):
+        if "-" in arg:
+            arg = arg.replace("-", "00")
+
         api_id, affiliate_id = _credentials(self.bot)
 
         api = dmm.API(api_id=api_id, affiliate_id=affiliate_id)
 
         actress_search = await asyncio.wait_for(
-            asyncio.to_thread(
-                api.actress_search, site="FANZA", keyword=arg, output='json'
-            ),
+            asyncio.to_thread(api.actress_search, site="FANZA", keyword=arg, output="json"),
             timeout=15,
         )
 
@@ -205,28 +189,24 @@ class dmm_tracker(commands.Cog):
         birthplace = actress["prefectures"]
         imageURL = actress["imageURL"]["large"]
 
-        try: 
-            bust_cup = actress["cup"]
-        except: 
-            bust_cup = ''
+        bust_cup = actress.get("cup", "")
 
-        idol_translator = GoogleTranslator(source = 'ja', target = 'vi')
-        
+        idol_translator = GoogleTranslator(source="ja", target="vi")
+
         idol_embed = discord.Embed(
-            color = discord.Colour.brand_green(),
-            title = actress_name + f'【{actress_ruby}】',
-            url = actress_digitalURL,
-            description='Đến từ ' + str(await _translate(idol_translator, birthplace))
+            color=discord.Colour.brand_green(),
+            title=actress_name + f"【{actress_ruby}】",
+            url=actress_digitalURL,
+            description="Đến từ " + str(await _translate(idol_translator, birthplace)),
         )
 
         idol_embed.set_thumbnail(url=imageURL)
-        idol_embed.add_field(name = 'Số đo 3 vòng', value = f'{bust} {waist} {hip} **{bust_cup}**')
-        idol_embed.add_field(name = 'Chiều cao', value = height)
-        idol_embed.add_field(name = 'Ngày sinh', value = birthday)
-        idol_embed.add_field(name = 'Sở thích', value = await _translate(idol_translator, hobby))
+        idol_embed.add_field(name="Số đo 3 vòng", value=f"{bust} {waist} {hip} **{bust_cup}**")
+        idol_embed.add_field(name="Chiều cao", value=height)
+        idol_embed.add_field(name="Ngày sinh", value=birthday)
+        idol_embed.add_field(name="Sở thích", value=await _translate(idol_translator, hobby))
         await ctx.send(embed=idol_embed)
-        pass
-    
+
 
 async def setup(bot):
     await bot.add_cog(dmm_tracker(bot))

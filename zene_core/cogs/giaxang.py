@@ -1,7 +1,8 @@
 """Today's fuel prices (prefix + slash), from giaxanghomnay.com."""
+
 from __future__ import annotations
 
-import logging
+import contextlib
 from datetime import date
 
 import discord
@@ -10,8 +11,6 @@ from discord import app_commands
 from discord.ext import commands
 
 from ..net import fetch_json
-
-log = logging.getLogger(__name__)
 
 API = "https://giaxanghomnay.com/api/pvdate/"
 _PRICE_CACHE: TTLCache = TTLCache(maxsize=8, ttl=1800)
@@ -91,10 +90,8 @@ class GiaXang(commands.Cog):
     @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def giaxanghomnay(self, ctx: commands.Context) -> None:
-        try:
+        with contextlib.suppress(discord.HTTPException, discord.ClientException):
             await ctx.defer()
-        except Exception as exc:  # prefix invocation may not need defer at all
-            log.debug("defer failed: %s", exc)
         today = date.today()
         key = today.strftime("%Y-%m-%d")
         data = _PRICE_CACHE.get(key)

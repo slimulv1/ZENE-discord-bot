@@ -1,11 +1,12 @@
 """Structured, rotating, secret-redacting logging."""
+
 from __future__ import annotations
 
 import json
 import logging
 import sys
+from collections.abc import Iterable
 from logging.handlers import RotatingFileHandler
-from typing import Iterable
 
 from .config import Config
 
@@ -24,7 +25,8 @@ class SecretRedactingFilter(logging.Filter):
             return True
         try:
             message = record.getMessage()
-        except Exception:
+        except (TypeError, ValueError):
+            # Malformed args must never break logging itself.
             return True
         for secret in self._secrets:
             message = message.replace(secret, "***REDACTED***")

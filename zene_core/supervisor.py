@@ -1,12 +1,14 @@
 """Process supervisor: supervised restarts, backoff, and a dependency-free health endpoint."""
+
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
 import logging
 import random
 import time
-from typing import Callable, Optional
+from collections.abc import Callable
 
 import discord
 
@@ -25,9 +27,9 @@ class Supervisor:
         self.state = state
         self.factory = factory
         self.started_at = time.monotonic()
-        self._bot: Optional[ZeneBot] = None
-        self._health_server: Optional[asyncio.AbstractServer] = None
-        self._shutdown_event: Optional[asyncio.Event] = None
+        self._bot: ZeneBot | None = None
+        self._health_server: asyncio.AbstractServer | None = None
+        self._shutdown_event: asyncio.Event | None = None
 
     # ------------------------------------------------------------- lifecycle --
     async def run(self) -> None:
@@ -107,7 +109,9 @@ class Supervisor:
                 log.error("bot.connect() trả về bất thường — tính là crash")
 
             if failures > self.config.max_restarts:
-                log.critical("vượt quá %d lần restart — dừng để tránh crash-loop", self.config.max_restarts)
+                log.critical(
+                    "vượt quá %d lần restart — dừng để tránh crash-loop", self.config.max_restarts
+                )
                 return
 
             delay = min(
@@ -117,12 +121,8 @@ class Supervisor:
             delay *= 1.0 + random.uniform(-0.2, 0.2)
             log.warning("sẽ khởi động lại sau %.1fs (failures=%d)", max(0.0, delay), failures)
             if self._shutdown_event is not None:
-                try:
-                    await asyncio.wait_for(
-                        self._shutdown_event.wait(), timeout=max(0.0, delay)
-                    )
-                except asyncio.TimeoutError:
-                    pass
+                with contextlib.suppress(TimeoutError):
+                    await asyncio.wait_for(self._shutdown_event.wait(), timeout=max(0.0, delay))
             else:
                 await asyncio.sleep(max(0.0, delay))
 
@@ -163,8 +163,10 @@ class Supervisor:
     ) -> None:
         try:
             request_line = (
-                await asyncio.wait_for(reader.readline(), timeout=2.0)
-            ).decode("utf-8", "replace").strip()
+                (await asyncio.wait_for(reader.readline(), timeout=2.0))
+                .decode("utf-8", "replace")
+                .strip()
+            )
             if not request_line.upper().startswith("GET /health"):
                 writer.write(
                     b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"

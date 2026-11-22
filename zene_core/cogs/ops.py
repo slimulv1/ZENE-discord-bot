@@ -1,4 +1,5 @@
 """Operator-facing health and lifecycle commands (owner-only where dangerous)."""
+
 from __future__ import annotations
 
 import logging

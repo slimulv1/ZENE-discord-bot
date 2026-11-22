@@ -1,4 +1,5 @@
 """Process-level state shared between the supervisor and the bot."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass

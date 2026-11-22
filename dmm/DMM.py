@@ -1,7 +1,8 @@
 """Minimal DMM Web API v3 client (MIT, patched for modern Python)."""
+
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any
 
 import requests
 
@@ -14,7 +15,7 @@ class DMM:
         api_id: str,
         affiliate_id: str,
         timeout: float = 10.0,
-        session: Optional[requests.Session] = None,
+        session: requests.Session | None = None,
     ) -> None:
         self.api_id = api_id
         self.affiliate_id = affiliate_id
@@ -28,9 +29,7 @@ class DMM:
             "site": "FANZA",
         }
         query.update(kwargs)
-        response = self._session.get(
-            BASE_URL + req, params=query, timeout=self.timeout
-        )
+        response = self._session.get(BASE_URL + req, params=query, timeout=self.timeout)
         response.raise_for_status()
         # Return the full payload so callers can inspect ``result.items``.
         return response.json()

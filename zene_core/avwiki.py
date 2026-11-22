@@ -1,16 +1,19 @@
 """av-wiki.net WordPress REST client for /code and /idol."""
+
 from __future__ import annotations
 
 import asyncio
 import html
+import logging
 import re
-from typing import Optional
 from urllib.parse import urlencode
 
 from cachetools import TTLCache
 
 from .net import fetch_json, get_breaker
 from .resilience import call_with_breaker
+
+log = logging.getLogger(__name__)
 
 BASE = "https://av-wiki.net/wp-json/wp/v2"
 
@@ -66,16 +69,15 @@ async def dmm_image(code: str, api_id: str, affiliate_id: str) -> str:
                     continue
                 urls = items[0].get("imageURL", {})
                 return urls.get("large") or urls.get("medium") or ""
-            except Exception:
+            except Exception as exc:  # noqa: BLE001 - third-party SDK boundary
+                log.debug("DMM image lookup failed: %s", exc)
                 continue
         return ""
 
     async def call() -> str:
         return await asyncio.to_thread(work)
 
-    return await call_with_breaker(
-        get_breaker("dmm-image"), call, fallback=""
-    )
+    return await call_with_breaker(get_breaker("dmm-image"), call, fallback="")
 
 
 async def to_vietnamese(text: str) -> str:
@@ -88,16 +90,13 @@ async def to_vietnamese(text: str) -> str:
 
     # deep_translator hits translate.google.com which rate-limits aggressively.
     # The gtx endpoint is the same service but tolerates our request rate.
-    url = (
-        "https://translate.googleapis.com/translate_a/single?"
-        + urlencode({"client": "gtx", "sl": "ja", "tl": "vi", "dt": "t", "q": text})
+    url = "https://translate.googleapis.com/translate_a/single?" + urlencode(
+        {"client": "gtx", "sl": "ja", "tl": "vi", "dt": "t", "q": text}
     )
     data = await fetch_json(url, name="ja-vi")
     result = text
     if isinstance(data, list) and data and isinstance(data[0], list):
-        translated = "".join(
-            str(segment[0]) for segment in data[0] if segment and segment[0]
-        )
+        translated = "".join(str(segment[0]) for segment in data[0] if segment and segment[0])
         if translated:
             result = translated
     if result != text:
@@ -146,7 +145,7 @@ async def search_code(code: str, limit: int = 3) -> list[dict]:
     return []
 
 
-async def search_idol(name: str, limit: int = 5) -> Optional[dict]:
+async def search_idol(name: str, limit: int = 5) -> dict | None:
     key = ("idol", name.strip(), limit)
     cached = _LOOKUP_CACHE.get(key)
     if cached is not None:

@@ -5,8 +5,9 @@ Changes vs upstream 0.3:
 * exports both ``DMM`` and the legacy ``API`` alias used by this bot
 * default timeout and a reusable Session instead of a bare requests.get
 """
+
 from .DMM import DMM
 
 API = DMM
 
-__all__ = ["DMM", "API"]
+__all__ = ["API", "DMM"]

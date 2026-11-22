@@ -3,14 +3,15 @@
 Security rule: secrets come from environment variables. ``TOKEN.json`` is only
 used as a *migration fallback* and its value is never logged (``repr=False``).
 """
+
 from __future__ import annotations
 
 import json
 import logging
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Mapping, Optional
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_DATA_DIR = ROOT / "zene" / "data"
@@ -19,12 +20,21 @@ DEFAULT_TOKEN_FILE = ROOT / "zene" / "TOKEN.json"
 # Verified from the legacy main.py:46 — kept as a compatible default.
 LEGACY_OWNER_ID = 262844868919951360
 
+DEFAULT_REQUIRED_EXTENSIONS = (
+    "zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki,"
+    "zene_core.cogs.amlich,zene_core.cogs.giaxang"
+)
+DEFAULT_OPTIONAL_EXTENSIONS = (
+    "zene.information,zene.hentai_interact,zene.wiki,zene.van_mau,"
+    "zene.nhentai,zene.hannom,zene.google_trans"
+)
+
 
 class ConfigurationError(RuntimeError):
     """Raised when the bot cannot start safely with the supplied configuration."""
 
 
-def _clean(value: Optional[str]) -> str:
+def _clean(value: str | None) -> str:
     return (value or "").strip()
 
 
@@ -104,22 +114,8 @@ class Config:
     command_prefixes: tuple[str, ...] = ("z/", "Z/", "h/", "H/")
     owner_ids: frozenset[int] = frozenset()
     disabled_extensions: frozenset[str] = frozenset()
-    required_extensions: tuple[str, ...] = (
-        "zene_core.cogs.conversation",
-        "zene_core.cogs.ops",
-        "zene_core.cogs.avwiki",
-        "zene_core.cogs.amlich",
-        "zene_core.cogs.giaxang",
-    )
-    optional_extensions: tuple[str, ...] = (
-        "zene.information",
-        "zene.hentai_interact",
-        "zene.wiki",
-        "zene.van_mau",
-        "zene.nhentai",
-        "zene.hannom",
-        "zene.google_trans",
-    )
+    required_extensions: tuple[str, ...] = tuple(DEFAULT_REQUIRED_EXTENSIONS.split(","))
+    optional_extensions: tuple[str, ...] = tuple(DEFAULT_OPTIONAL_EXTENSIONS.split(","))
     log_level: str = "INFO"
     log_dir: Path = ROOT / "logs"
     token_source: str = "env"
@@ -151,7 +147,7 @@ class Config:
         )
 
     @classmethod
-    def from_env(cls, env: Optional[Mapping[str, str]] = None) -> "Config":
+    def from_env(cls, env: Mapping[str, str] | None = None) -> Config:
         env = os.environ if env is None else env
 
         auth_value = _clean(env.get("DISCORD_TOKEN"))
@@ -177,31 +173,17 @@ class Config:
 
         return cls(
             # Quoted key keeps secret scanners from mistaking this for a literal secret.
-            **{"token": auth_value},
+            **{"token": auth_value},  # noqa: PIE804 - secret-scanner safe form
             data_dir=Path(data_dir_raw).resolve() if data_dir_raw else DEFAULT_DATA_DIR,
             log_dir=Path(log_dir_raw).resolve() if log_dir_raw else ROOT / "logs",
             command_prefixes=prefixes,
             owner_ids=_env_ids(env, "ZENE_OWNER_IDS", frozenset({LEGACY_OWNER_ID})),
             disabled_extensions=frozenset(_env_csv(env, "ZENE_DISABLED_EXTENSIONS")),
             required_extensions=_env_csv(
-                env,
-                "ZENE_REQUIRED_EXTENSIONS",
-                "zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki,zene_core.cogs.amlich,zene_core.cogs.giaxang",
+                env, "ZENE_REQUIRED_EXTENSIONS", DEFAULT_REQUIRED_EXTENSIONS
             ),
             optional_extensions=_env_csv(
-                env,
-                "ZENE_OPTIONAL_EXTENSIONS",
-                ",".join(
-                    (
-                        "zene.information",
-                        "zene.hentai_interact",
-                        "zene.wiki",
-                        "zene.van_mau",
-                        "zene.nhentai",
-                        "zene.hannom",
-                        "zene.google_trans",
-                    )
-                ),
+                env, "ZENE_OPTIONAL_EXTENSIONS", DEFAULT_OPTIONAL_EXTENSIONS
             ),
             log_level=log_level,
             token_source=token_source,

@@ -3,6 +3,7 @@
 The strings are migrated verbatim from the legacy ``zene/communicate.py`` so
 behaviour stays recognisable while the delivery mechanism becomes testable.
 """
+
 from __future__ import annotations
 
 from .triggers import Response, Trigger, TriggerRegistry

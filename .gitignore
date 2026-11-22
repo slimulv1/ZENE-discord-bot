@@ -6,6 +6,7 @@ zene/TOKEN.json
 
 # Python artifacts
 __pycache__/
+.ruff_cache/
 *.py[cod]
 .venv/
 venv/

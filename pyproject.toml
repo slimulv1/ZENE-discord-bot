@@ -1,0 +1,17 @@
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+exclude = [".venv", "__pycache__", "zene/data", "logs"]
+
+[tool.ruff.lint]
+select = ["E4", "E7", "E9", "F", "I", "UP", "SIM", "PIE", "C4", "RET", "RUF", "BLE", "S", "ASYNC", "B", "FLY"]
+ignore = [
+    "E501",    # line length handled by formatter
+    "RUF001", "RUF002", "RUF003",  # Vietnamese text in strings is intentional
+    "S101",    # asserts in tests are fine
+    "S105",    # no real secrets in source
+    "S311",    # random is fine for meme selection
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]

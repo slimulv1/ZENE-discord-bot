@@ -1,5 +1,7 @@
 """Legacy nhentai commands with blocking SDK calls moved off the event loop."""
+
 import asyncio
+import contextlib
 import logging
 
 import discord
@@ -9,7 +11,7 @@ log = logging.getLogger(__name__)
 
 
 def _client():
-    from hentai import Hentai, Utils, Sort, Format  # noqa: F401
+    from hentai import Format, Hentai, Sort, Utils
 
     return Hentai, Utils, Sort, Format
 
@@ -31,11 +33,9 @@ class nhentai(commands.Cog):
                 doujin = Hentai(arg)
                 return doujin.title(Format.Pretty), doujin.url
 
-            title, url = await asyncio.wait_for(
-                asyncio.to_thread(work), timeout=15
-            )
+            title, url = await asyncio.wait_for(asyncio.to_thread(work), timeout=15)
             await ctx.send(f"**{title}: ** {url}")
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - third-party SDK boundary
             log.warning("nhentai lookup failed: %s", exc)
             await ctx.send("Không tìm thấy mã này hoặc API đang nghỉ.")
 
@@ -46,19 +46,17 @@ class nhentai(commands.Cog):
             await ctx.send("Qua kênh NSFW mà xài")
             return
         try:
-            Hentai, Utils, Sort, Format = await asyncio.to_thread(_client)
+            _Hentai, Utils, Sort, Format = await asyncio.to_thread(_client)
 
             def work():
                 return list(Utils.search_by_query(arg, sort=Sort.PopularWeek))[:5]
 
-            results = await asyncio.wait_for(
-                asyncio.to_thread(work), timeout=15
-            )
-        except asyncio.TimeoutError:
+            results = await asyncio.wait_for(asyncio.to_thread(work), timeout=15)
+        except TimeoutError:
             log.warning("nhentai search timeout")
             await ctx.send("API đang phản hồi chậm, thử lại sau.")
             return
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - third-party SDK boundary
             log.warning("nhentai search failed: %s", exc)
             await ctx.send("Không tìm thấy")
             return
@@ -69,10 +67,8 @@ class nhentai(commands.Cog):
                 description=doujin.url,
                 color=discord.Colour.teal(),
             )
-            try:
+            with contextlib.suppress(IndexError, TypeError):
                 embed.set_image(url=doujin.image_urls[0])
-            except (IndexError, TypeError):
-                pass
             await ctx.send(embed=embed)
 
         if not results:

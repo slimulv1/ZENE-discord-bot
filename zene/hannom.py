@@ -34,11 +34,11 @@ class han2viet(commands.Cog):
 
         lines = []
         for item in result:
-            text = ' '.join(item.get("o", []))
+            text = " ".join(item.get("o", []))
             if text:
                 lines.append(text)
 
-        reply = '\n'.join(lines)
+        reply = "\n".join(lines)
         await ctx.reply(f"{reply}\nhttps://hvdic.thivien.net/whv/{arg}")
 
 

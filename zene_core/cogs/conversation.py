@@ -3,11 +3,12 @@
 Fixes: no pandas on the message hot path, no self-trigger loops, no shared
 cache file, bounded concurrency, per-user cooldowns and total error containment.
 """
+
 from __future__ import annotations
 
+import contextlib
 import logging
 import random
-from typing import Optional
 
 import discord
 from discord import app_commands
@@ -104,27 +105,21 @@ class ConversationCog(commands.Cog):
         mask = rest[0] if rest else None
         author = user or target.author
         avatar = author.avatar or author.display_avatar
-        try:
-            # Avoid animated GIF frames / palette quirks — always get a static PNG.
+        # Avoid animated GIF frames / palette quirks — always get a static PNG.
+        with contextlib.suppress(AttributeError, TypeError, ValueError):
             avatar = avatar.with_static_format("png")
-        except Exception:
-            pass
         avatar_bytes = await avatar.read()
-        output = await self.bot.assets.composite_avatar(
-            base, avatar_bytes, box, size, mask
-        )
+        output = await self.bot.assets.composite_avatar(base, avatar_bytes, box, size, mask)
         if output is None:
             await self.bot.safe_send(target, "Không xử lý được ảnh lúc này.")
             return
-        await self.bot.safe_send(
-            target, file=discord.File(output, filename="zene-composite.png")
-        )
+        await self.bot.safe_send(target, file=discord.File(output, filename="zene-composite.png"))
 
     # -------------------------------------------------------------- commands --
     @commands.hybrid_command(name="avt", description="Xem ảnh đại diện")
     @app_commands.checks.cooldown(1, 3)
     @commands.cooldown(1, 3, commands.BucketType.user)
-    async def avt(self, ctx: commands.Context, member: Optional[discord.User] = None) -> None:
+    async def avt(self, ctx: commands.Context, member: discord.User | None = None) -> None:
         user = member or ctx.author
         avatar = user.avatar or user.display_avatar
         embed = discord.Embed(
@@ -132,16 +127,16 @@ class ConversationCog(commands.Cog):
             url=avatar.url,
             color=discord.Colour.blurple(),
         )
-        try:
+        with contextlib.suppress(AttributeError, TypeError, ValueError):
             embed.set_image(url=avatar.with_size(512).url)
-        except Exception:
+        if not getattr(embed.image, "url", None):
             embed.set_image(url=avatar.url)
         await self.bot.safe_send(ctx, embed=embed)
 
     @commands.hybrid_command(name="haha", description="Ghép avatar vào ảnh haha")
     @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
-    async def haha(self, ctx: commands.Context, member: Optional[discord.User] = None) -> None:
+    async def haha(self, ctx: commands.Context, member: discord.User | None = None) -> None:
         target = member or ctx.author
         await self._deliver(
             ctx,
@@ -156,7 +151,7 @@ class ConversationCog(commands.Cog):
 
     @commands.command(name="tv")
     @commands.cooldown(1, 5, commands.BucketType.user)
-    async def tv(self, ctx: commands.Context, member: Optional[discord.Member] = None) -> None:
+    async def tv(self, ctx: commands.Context, member: discord.Member | None = None) -> None:
         target = member or ctx.author
         await self._deliver(
             ctx,
@@ -171,7 +166,7 @@ class ConversationCog(commands.Cog):
 
     @commands.command(name="bonk")
     @commands.cooldown(1, 3, commands.BucketType.user)
-    async def bonk(self, ctx: commands.Context, member: Optional[discord.Member] = None) -> None:
+    async def bonk(self, ctx: commands.Context, member: discord.Member | None = None) -> None:
         if member is not None and member.id in self.bot.owner_ids:
             await self.bot.safe_send(ctx, "Không được đánh Onii-sama :angry:")
             return

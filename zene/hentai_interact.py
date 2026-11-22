@@ -3,31 +3,31 @@
 Public command names and replies are unchanged; only the transport changed:
 ``requests.get`` now runs in a worker thread behind the shared circuit breaker.
 """
+
 import random
-from typing import Optional
 
 from discord.ext import commands
 
 from zene_core.net import fetch_json
 
-nsfw_direct = 'Qua kênh NSFW mà xài'
-warning = 'Xem hentai nhiều có hại cho sức khỏe. Chọn số dưới 10 thôi'
-degraded = 'API đang nghỉ ngơi, thử lại sau nhé.'
+nsfw_direct = "Qua kênh NSFW mà xài"
+warning = "Xem hentai nhiều có hại cho sức khỏe. Chọn số dưới 10 thôi"
+degraded = "API đang nghỉ ngơi, thử lại sau nhé."
 
 LEWD_ENDPOINTS = [
-    'https://api.waifu.pics/nsfw/waifu',
-    'http://api.nekos.fun:8080/api/lewd',
-    'http://api.nekos.fun:8080/api/hentai',
-    'https://api.waifu.pics/nsfw/neko',
-    'https://neko-love.xyz/api/v1/nekolewd',
+    "https://api.waifu.pics/nsfw/waifu",
+    "http://api.nekos.fun:8080/api/lewd",
+    "http://api.nekos.fun:8080/api/hentai",
+    "https://api.waifu.pics/nsfw/neko",
+    "https://neko-love.xyz/api/v1/nekolewd",
 ]
 NEKO_ENDPOINTS = [
-    'https://api.waifu.pics/nsfw/neko',
-    'https://neko-love.xyz/api/v1/nekolewd',
+    "https://api.waifu.pics/nsfw/neko",
+    "https://neko-love.xyz/api/v1/nekolewd",
 ]
 
 
-async def _image_url(url: str) -> Optional[str]:
+async def _image_url(url: str) -> str | None:
     payload = await fetch_json(url, name="hentai-api")
     if not isinstance(payload, dict):
         return None
@@ -82,7 +82,7 @@ class hentai_random(commands.Cog):
             await ctx.send(nsfw_direct)
             return
         for _ in range(number):
-            image = await _image_url('https://api.waifu.pics/nsfw/trap')
+            image = await _image_url("https://api.waifu.pics/nsfw/trap")
             await ctx.send(image if image else degraded)
 
     @commands.command()
@@ -102,26 +102,28 @@ class hentai_random(commands.Cog):
         if not ctx.channel.is_nsfw():
             await ctx.send(nsfw_direct)
             return
-        image = await _image_url('https://api.waifu.pics/nsfw/blowjob')
+        image = await _image_url("https://api.waifu.pics/nsfw/blowjob")
         await ctx.send(image if image else degraded)
 
     @commands.command()
     async def mlem(self, ctx):
-        image = await _image_url('http://api.nekos.fun:8080/api/lick')
+        image = await _image_url("http://api.nekos.fun:8080/api/lick")
         await ctx.send(image if image else degraded)
 
     @commands.command()
     async def slap(self, ctx, *, god=None):
         owner_id = 262844868919951360
-        if getattr(god, 'id', None) != owner_id:
-            image = await _image_url('http://api.nekos.fun:8080/api/slap')
+        if getattr(god, "id", None) != owner_id:
+            image = await _image_url("http://api.nekos.fun:8080/api/slap")
             await ctx.send(image if image else degraded)
         else:
-            await ctx.send('<@262844868919951360> Có đứa định slap Onii-sama. Để em xiên nó :angry:')
+            await ctx.send(
+                "<@262844868919951360> Có đứa định slap Onii-sama. Để em xiên nó :angry:"
+            )
 
     @commands.command()
     async def waifu(self, ctx):
-        image = await _image_url('https://api.waifu.pics/sfw/waifu')
+        image = await _image_url("https://api.waifu.pics/sfw/waifu")
         await ctx.send(image if image else degraded)
 
 

@@ -6,6 +6,7 @@ Key fixes over the legacy cog:
 * Sending uses in-memory bytes, so two concurrent commands can never corrupt
   a shared ``cache.jpg`` and no file descriptor is left open.
 """
+
 from __future__ import annotations
 
 import asyncio
@@ -14,7 +15,6 @@ import random
 import unicodedata
 from io import BytesIO
 from pathlib import Path
-from typing import Optional
 
 log = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ class AssetRegistry:
                 frame = pd.read_excel(excel, dtype=str).fillna("")
                 commands = frame.get("Command", [])
                 locations = frame.get("File_Location", [])
-                for command, location in zip(commands, locations):
+                for command, location in zip(commands, locations, strict=False):
                     key = self._norm(command)
                     rel = str(location).strip().replace("\\", "/")
                     if key and rel:
@@ -78,7 +78,7 @@ class AssetRegistry:
                 log.warning("Không liệt kê được %s: %s", folder, exc)
         self.loaded = True
 
-    def path_for(self, relative: str) -> Optional[Path]:
+    def path_for(self, relative: str) -> Path | None:
         """Resolve a repo-relative asset path; reject traversal and missing files."""
         if not relative:
             return None
@@ -90,10 +90,10 @@ class AssetRegistry:
             return None
         return candidate if candidate.is_file() else None
 
-    def file_for_command(self, command: str) -> Optional[str]:
+    def file_for_command(self, command: str) -> str | None:
         return self._by_command.get(self._norm(command))
 
-    def random_in(self, folder: str) -> Optional[str]:
+    def random_in(self, folder: str) -> str | None:
         items = self._folders.get(folder) or []
         return self._rng.choice(items) if items else None
 
@@ -105,7 +105,7 @@ class AssetRegistry:
     def command_names(self) -> tuple[str, ...]:
         return tuple(sorted(self._by_command))
 
-    async def read_bytes(self, relative: str) -> Optional[bytes]:
+    async def read_bytes(self, relative: str) -> bytes | None:
         path = self.path_for(relative)
         if path is None:
             return None
@@ -119,7 +119,7 @@ class AssetRegistry:
             log.warning("Không đọc được asset %s: %s", relative, exc)
             return None
 
-    async def discord_file(self, relative: str, filename: Optional[str] = None):
+    async def discord_file(self, relative: str, filename: str | None = None):
         """Build a ``discord.File`` from memory — no open handles, no shared file."""
         data = await self.read_bytes(relative)
         if data is None:
@@ -135,14 +135,15 @@ class AssetRegistry:
         avatar_bytes: bytes,
         box: tuple[int, int],
         size: tuple[int, int] = (256, 256),
-        mask: Optional[str] = "ellipse",
-    ) -> Optional[BytesIO]:
+        mask: str | None = "ellipse",
+    ) -> BytesIO | None:
         """Paste a member avatar onto a base image, entirely in memory.
 
         Quality pipeline (Pillow): EXIF-oriented base -> high-quality LANCZOS
         fit -> mild unsharp -> soft-edged elliptical mask -> lossless PNG.
         """
-        def work() -> Optional[BytesIO]:
+
+        def work() -> BytesIO | None:
             try:
                 from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
             except ImportError:
@@ -161,9 +162,7 @@ class AssetRegistry:
                 avatar = ImageOps.fit(
                     avatar, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
                 )
-                avatar = avatar.filter(
-                    ImageFilter.UnsharpMask(radius=1, percent=70, threshold=3)
-                )
+                avatar = avatar.filter(ImageFilter.UnsharpMask(radius=1, percent=70, threshold=3))
 
                 if mask == "ellipse":
                     shape = Image.new("L", size, 0)

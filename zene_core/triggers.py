@@ -3,22 +3,22 @@
 Replaces the 25-deep ``if`` chain in the legacy ``on_message`` with an O(1)
 exact lookup followed by a small, pre-compiled contains/regex pass.
 """
+
 from __future__ import annotations
 
 import re
 import unicodedata
 from dataclasses import dataclass
-from typing import Any, Callable, Optional, Union
+from typing import Any
 
 Payload = Any
-Fallback = Optional[Union[str, Callable[[], str]]]
 
 
 @dataclass(frozen=True, slots=True)
 class Response:
     kind: str  # text | choice | file | folder | composite | command
     value: Any
-    filename: Optional[str] = None
+    filename: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,7 +50,7 @@ class TriggerRegistry:
         self._regex: list[tuple[re.Pattern[str], Trigger]] = []
         self._finalized = False
 
-    def add(self, trigger: Trigger) -> "TriggerRegistry":
+    def add(self, trigger: Trigger) -> TriggerRegistry:
         if self._finalized:
             raise RuntimeError("Registry đã finalize; không thể thêm trigger nữa")
         if trigger.kind == "exact":
@@ -58,20 +58,18 @@ class TriggerRegistry:
         elif trigger.kind == "contains":
             self._contains.append(trigger)
         elif trigger.kind == "regex":
-            self._regex.append(
-                (re.compile(trigger.pattern, re.IGNORECASE | re.DOTALL), trigger)
-            )
+            self._regex.append((re.compile(trigger.pattern, re.IGNORECASE | re.DOTALL), trigger))
         else:
             raise ValueError(f"Loại trigger không hợp lệ: {trigger.kind!r}")
         return self
 
-    def finalize(self) -> "TriggerRegistry":
+    def finalize(self) -> TriggerRegistry:
         self._contains.sort(key=lambda t: (-t.priority, -len(t.pattern)))
         self._regex.sort(key=lambda pair: -pair[1].priority)
         self._finalized = True
         return self
 
-    def match(self, content: str) -> Optional[TriggerMatch]:
+    def match(self, content: str) -> TriggerMatch | None:
         normalized = normalize(content)
         if not normalized:
             return None

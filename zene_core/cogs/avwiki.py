@@ -1,5 +1,8 @@
 """NSFW-only /code and /idol commands backed by av-wiki.net REST API."""
+
 from __future__ import annotations
+
+import contextlib
 
 import discord
 from discord import app_commands
@@ -35,10 +38,8 @@ class AvWikiCog(commands.Cog):
     @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def code(self, ctx: commands.Context, *, arg: str) -> None:
-        try:
+        with contextlib.suppress(discord.HTTPException, discord.ClientException):
             await ctx.defer()
-        except Exception:
-            pass
         channel = getattr(ctx, "channel", None)
         if channel is None or not channel.is_nsfw():
             await self.bot.safe_send(ctx, NOT_NSFW)
@@ -95,10 +96,8 @@ class AvWikiCog(commands.Cog):
     @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def idol(self, ctx: commands.Context, *, arg: str) -> None:
-        try:
+        with contextlib.suppress(discord.HTTPException, discord.ClientException):
             await ctx.defer()
-        except Exception:
-            pass
         channel = getattr(ctx, "channel", None)
         if channel is None or not channel.is_nsfw():
             await self.bot.safe_send(ctx, NOT_NSFW)
