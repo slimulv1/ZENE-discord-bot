@@ -74,8 +74,11 @@ Nếu dùng ngoài kênh NSFW, bot trả lời `Qua kênh NSFW mà xài` / `Lệ
 Ngoài lệnh, bot còn phản hồi ~18 cụm từ text có sẵn (ví dụ `tôi bị xúc phạm`,
 `là...` → Folontilô, `siuu`, `hảo hán`, `xaolon`, `300 bài code thiếu nhi`) và
 ~40 mapping "lệnh → file ảnh/video" từ `zene/data/command_data/command_link.xlsx`.
-Excel chỉ được nạp **một lần lúc boot**, có cooldown theo từng người, bỏ qua tin
-nhắn từ bot khác, chặn path traversal.
+Toàn bộ nội dung meme nằm trong **`zene/data/memes.json`** (nguồn dữ liệu duy
+nhất); file Excel `command_link.xlsx` và `extra_commands.json` chỉ giữ lại làm
+fallback tương thích. Dữ liệu được nạp **một lần lúc boot**, có cooldown theo
+từng người, bỏ qua tin nhắn từ bot khác, chặn path traversal. Muốn thêm meme:
+sửa JSON, không cần đụng code hay mở LibreOffice.
 
 ### 1.7 Đặc tính vận hành 24/7
 

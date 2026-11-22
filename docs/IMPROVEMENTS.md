@@ -196,6 +196,31 @@ Lệnh operator (prefix `z/`): `health`, `stats`, `extensions`, `reload <module>
 `unittest` 9/9 OK, `compileall` exit 0, nạp 12 extension thành công (40 lệnh),
 smoke test `/code`, `/idol`, `/giaxanghomnay`, `/amlich` đều trả dữ liệu thật.
 
+## 5e. Gom dữ liệu meme về một file JSON (LibreOffice → CSV → JSON)
+
+Dùng LibreOffice headless export `command_link.xlsx` sang CSV, sau đó gộp với
+các text/choice/folder trigger từ `content.py` và overlay JSON thành
+`zene/data/memes.json` (94 asset mapping + 13 text trigger + 2 contains + 2
+folder + 1 choice + 5 command text + 7 stories). `content.py` giờ là loader mỏng;
+`assets.py` đọc `memes.json` trước, xlsx/overlay chỉ là fallback.
+
+### Lợi / hại của các câu lệnh meme
+
+| Hình thức | Lợi | Hại |
+|---|---|---|
+| Lệnh prefix (`z/code`, `z/haha`) | Dễ gõ, dễ nhớ, có cooldown riêng, hiện trong help/`/cmd`, không bao giờ bắn nhầm | Phải nhớ prefix; ít tính "tự phát"; cần kiểm soát trùng tên lệnh |
+| Trigger tự động (`siuu`, `là...`, `hảo hán`) | Tự nhiên, vui, không cần lệnh | Dễ bắn nhầm (false positive), có thể spam/self-loop nếu thiếu guard bot + cooldown, không hiện trên UI slash |
+| Hybrid (`/code`, `/haha`, `/cmd`) | Có cả prefix lẫn slash, có option/NSFW flag do Discord validate | Phải sync `CommandTree`; dễ quên scope `applications.commands`; payload lệnh bị giới hạn 100 ký tự mô tả |
+
+| Định dạng dữ liệu | Lợi | Hại |
+|---|---|---|
+| `memes.json` (chọn) | Một nguồn thật, diff dễ đọc trên Git, không cần pandas/openpyxl lúc runtime, portable ARM/x86, dễ validate + hot-reload sau này | Không có UI bảng tính cho biên tập viên không biết code; phải cẩn thận escape Unicode |
+| Excel/xlsx (cũ) | Quen thuộc với người dùng không lập trình, dễ lọc/sắp xếp | File nhị phân → conflict Git khó solve; cần pandas + openpyxl (nặng trên Pi); từng đọc mỗi tin nhắn trong bản legacy; không kiểm soát được đường dẫn |
+| Hardcode trong Python (cũ) | Đơn giản, không phụ thuộc file | Sửa meme phải sửa code + deploy lại; file `communicate.py` phình to; dễ lẫn logic với nội dung |
+
+Kết luận: giữ **lệnh prefix cho tác vụ cần kiểm soát**, **hybrid cho lệnh hay dùng**,
+**trigger tự động chỉ cho meme ngắn có cooldown**, và đưa toàn bộ nội dung về JSON.
+
 ## 6. Ma trận quyết định thiết kế (ghi lại để tránh "over-engineer sai chỗ")
 
 | Ý tưởng bị loại | Lý do |

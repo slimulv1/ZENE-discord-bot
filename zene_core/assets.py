@@ -46,40 +46,47 @@ class AssetRegistry:
         self._by_command.clear()
         self._folders.clear()
 
-        excel = self.data_dir / "command_data" / "command_link.xlsx"
-        if excel.is_file():
+        memes = self.data_dir / "memes.json"
+        if memes.is_file():
             try:
-                import pandas as pd
-
-                frame = pd.read_excel(excel, dtype=str).fillna("")
-                commands = frame.get("Command", [])
-                locations = frame.get("File_Location", [])
-                for command, location in zip(commands, locations, strict=False):
+                data = json.loads(memes.read_text(encoding="utf-8"))
+                for command, location in data.get("assets", {}).items():
                     key = self._norm(command)
                     rel = str(location).strip().replace("\\", "/")
                     if key and rel:
                         self._by_command[key] = rel
-                log.info("asset registry: %d command mappings từ Excel", len(self._by_command))
-            except Exception as exc:  # noqa: BLE001 - optional dependency boundary
-                log.warning("Không đọc được command_link.xlsx: %s", exc)
-        else:
-            log.warning("Thiếu %s — bỏ qua mapping Excel", excel)
-
-        # Text overlay: easy to add new memes without editing the binary xlsx.
-        overlay = self.data_dir / "command_data" / "extra_commands.json"
-        if overlay.is_file():
-            try:
-                extra = json.loads(overlay.read_text(encoding="utf-8"))
-                added = 0
-                for command, location in extra.items():
-                    key = self._norm(command)
-                    rel = str(location).strip().replace("\\", "/")
-                    if key and rel and self.path_for(rel) is not None:
-                        self._by_command[key] = rel
-                        added += 1
-                log.info("asset registry: +%d mapping từ overlay JSON", added)
+                log.info("asset registry: %d mappings từ memes.json", len(self._by_command))
             except (OSError, ValueError, TypeError) as exc:
-                log.warning("Không đọc được %s: %s", overlay, exc)
+                log.warning("Không đọc được %s: %s", memes, exc)
+        else:
+            # Backward compatibility: old Excel + text overlay.
+            excel = self.data_dir / "command_data" / "command_link.xlsx"
+            if excel.is_file():
+                try:
+                    import pandas as pd
+
+                    frame = pd.read_excel(excel, dtype=str).fillna("")
+                    for command, location in zip(
+                        frame.get("Command", []), frame.get("File_Location", []), strict=False
+                    ):
+                        key = self._norm(command)
+                        rel = str(location).strip().replace("\\", "/")
+                        if key and rel:
+                            self._by_command[key] = rel
+                    log.info("asset registry: %d mappings từ Excel", len(self._by_command))
+                except Exception as exc:  # noqa: BLE001 - optional dependency boundary
+                    log.warning("Không đọc được command_link.xlsx: %s", exc)
+            overlay = self.data_dir / "command_data" / "extra_commands.json"
+            if overlay.is_file():
+                try:
+                    extra = json.loads(overlay.read_text(encoding="utf-8"))
+                    for command, location in extra.items():
+                        key = self._norm(command)
+                        rel = str(location).strip().replace("\\", "/")
+                        if key and rel:
+                            self._by_command[key] = rel
+                except (OSError, ValueError, TypeError) as exc:
+                    log.warning("Không đọc được %s: %s", overlay, exc)
 
         for name in _IMAGE_FOLDERS:
             folder = self.data_dir / "image" / name
