@@ -69,7 +69,8 @@ class CircuitBreaker:
     ) -> None:
         self.name = name
         self.failure_threshold = max(1, failure_threshold)
-        self.recovery_seconds = max(1.0, recovery_seconds)
+        # Keep tests able to use short windows; production passes 30s.
+        self.recovery_seconds = max(0.01, recovery_seconds)
         self.half_open_successes = max(1, half_open_successes)
         self._state = self.CLOSED
         self._failures = 0

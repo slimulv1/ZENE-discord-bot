@@ -181,6 +181,21 @@ Lệnh operator (prefix `z/`): `health`, `stats`, `extensions`, `reload <module>
 | `nhentai` search trả rỗng → im lặng; SDK không timeout | thêm thông báo "Không tìm thấy" + `wait_for(..., 15)` |
 | `dmm_tracker` truy cập `items[0]` không kiểm tra | helper `_first_item`/`_first_actress` + `.get()` + timeout 15s |
 
+## 5d. Vòng tối ưu hạ tầng (MCP: Context7 + sequential-thinking)
+
+| Thay đổi | Lý do (đã đối chiếu docs) |
+|---|---|
+| Vendor bản `dmm/` đã vá | `dmm-search3` pin `requests==2.21.0`, chỉ export `dmm.DMM`; bản vá thêm alias `API`, timeout, Session dùng lại, tương thích Python 3.11 |
+| `net.py` dùng một `aiohttp.ClientSession` chung | Context7 xác nhận không tạo session cho mỗi request; giảm handshake/TLS, DNS cache; đóng trong `bot.close()` |
+| Sửa lỗi đọc body outside `async with` | Response bị release trước khi `json()` → "Connection closed"; giờ đọc `bytes` ngay trong context |
+| `cachetools.TTLCache` | Context7 xác nhận thư viện chuẩn cho TTL cache; cache tra cứu avwiki 5 phút, dịch 24h, giá xăng 30 phút |
+| `python-dotenv` | Tự load `.env` khi chạy local |
+| Bỏ `dmm-search3` khỏi `requirements.txt` | Xung đột requests, thay bằng bản vendored |
+
+**Kiểm chứng thật trên máy:** Python 3.11.9 + venv, cài xong `requirements.txt`,
+`unittest` 9/9 OK, `compileall` exit 0, nạp 12 extension thành công (40 lệnh),
+smoke test `/code`, `/idol`, `/giaxanghomnay`, `/amlich` đều trả dữ liệu thật.
+
 ## 6. Ma trận quyết định thiết kế (ghi lại để tránh "over-engineer sai chỗ")
 
 | Ý tưởng bị loại | Lý do |

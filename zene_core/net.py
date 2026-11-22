@@ -1,20 +1,26 @@
-"""Bridge legacy blocking HTTP calls onto the async resilience layer.
+"""Shared async HTTP layer with a single aiohttp session.
 
-Every network call from a command goes through here so the circuit breaker,
-retry policy and timeout are actually used in production (not dead code).
+Why: discord.py already ships aiohttp. Reusing one ClientSession avoids a new
+TCP/TLS handshake per command and keeps DNS cached, which matters for the
+24/7 uptime goal. All calls still go through the circuit breaker registry.
 """
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 from typing import Any, Optional
 
-from .resilience import CircuitBreaker, RetryPolicy, call_with_breaker, with_timeout
+import aiohttp
+
+from .resilience import CircuitBreaker, RetryPolicy, call_with_breaker
 
 log = logging.getLogger(__name__)
 
 _BREAKERS: dict[str, CircuitBreaker] = {}
 _POLICY = RetryPolicy(attempts=2, base_delay=0.3, max_delay=1.5, jitter=0.2)
+_SESSION: Optional[aiohttp.ClientSession] = None
+_SESSION_LOCK = asyncio.Lock()
 
 
 def _breaker(name: str) -> CircuitBreaker:
@@ -27,13 +33,49 @@ def _breaker(name: str) -> CircuitBreaker:
     return breaker
 
 
-async def _blocking_get(url: str, timeout: float) -> Any:
-    """Run the blocking ``requests.get`` off the event loop."""
-    import requests
+def get_breaker(name: str) -> CircuitBreaker:
+    """Public accessor so other adapters can share the same breaker registry."""
+    return _breaker(name)
 
-    response = await asyncio.to_thread(requests.get, url, timeout=timeout)
-    response.raise_for_status()
-    return response
+
+async def get_session() -> aiohttp.ClientSession:
+    global _SESSION
+    if _SESSION is None or _SESSION.closed:
+        async with _SESSION_LOCK:
+            if _SESSION is None or _SESSION.closed:
+                connector = aiohttp.TCPConnector(limit=20, ttl_dns_cache=300)
+                timeout = aiohttp.ClientTimeout(total=15)
+                _SESSION = aiohttp.ClientSession(
+                    connector=connector, timeout=timeout
+                )
+                log.info("aiohttp session created")
+    return _SESSION
+
+
+async def close_session() -> None:
+    global _SESSION
+    if _SESSION is not None and not _SESSION.closed:
+        await _SESSION.close()
+    _SESSION = None
+
+
+async def _request(
+    method: str,
+    url: str,
+    *,
+    timeout: float,
+    headers: Optional[dict[str, str]] = None,
+    data: Optional[bytes] = None,
+) -> bytes:
+    session = await get_session()
+    request_timeout = aiohttp.ClientTimeout(total=max(1.0, timeout))
+    async with session.request(
+        method, url, timeout=request_timeout, headers=headers, data=data
+    ) as response:
+        response.raise_for_status()
+        # Read inside the context — returning the response would release the
+        # connection before the caller parses the body ("Connection closed").
+        return await response.read()
 
 
 async def fetch_json(
@@ -45,14 +87,11 @@ async def fetch_json(
     """Return parsed JSON, or ``None`` when the dependency is degraded."""
 
     async def call() -> Any:
-        response = await with_timeout(_blocking_get(url, timeout), timeout + 2.0)
-        return response.json()
+        raw = await _request("GET", url, timeout=timeout)
+        return json.loads(raw)
 
     result = await call_with_breaker(
-        _breaker(name or url),
-        call,
-        fallback=None,
-        policy=_POLICY,
+        _breaker(name or url), call, fallback=None, policy=_POLICY
     )
     if result is None:
         log.info("external API degraded: %s", name or url)
@@ -68,31 +107,15 @@ async def fetch_text(
     headers: Optional[dict[str, str]] = None,
     data: Optional[bytes] = None,
 ) -> Optional[str]:
-    """Return response text for non-JSON endpoints (e.g. form POST APIs)."""
-
     async def call() -> str:
-        import requests
-
-        def work() -> str:
-            response = requests.request(
-                method, url, timeout=timeout, headers=headers, data=data
-            )
-            response.raise_for_status()
-            return response.text
-
-        return await with_timeout(asyncio.to_thread(work), timeout + 2.0)
+        raw = await _request(
+            method, url, timeout=timeout, headers=headers, data=data
+        )
+        return raw.decode("utf-8", "replace")
 
     return await call_with_breaker(
-        _breaker(name or url),
-        call,
-        fallback=None,
-        policy=_POLICY,
+        _breaker(name or url), call, fallback=None, policy=_POLICY
     )
-
-
-def get_breaker(name: str) -> CircuitBreaker:
-    """Public accessor so other adapters can share the same breaker registry."""
-    return _breaker(name)
 
 
 def breaker_snapshot() -> dict[str, str]:

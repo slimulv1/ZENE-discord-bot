@@ -183,6 +183,9 @@ class ZeneBot(commands.Bot):
             return
         self._closing = True
         log.info("đang đóng bot gracefully...")
+        from .net import close_session
+
+        await close_session()
         await super().close()
 
 

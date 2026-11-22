@@ -6,6 +6,8 @@ import asyncio
 import signal
 import sys
 
+from dotenv import load_dotenv
+
 from zene_core.bot import build_bot
 from zene_core.config import Config, ConfigurationError
 from zene_core.logging_setup import setup_logging
@@ -29,6 +31,7 @@ async def _run(config: Config) -> None:
 
 
 def main() -> int:
+    load_dotenv()  # local .env support; harmless when env vars are already set
     try:
         config = Config.from_env()
     except ConfigurationError as exc:

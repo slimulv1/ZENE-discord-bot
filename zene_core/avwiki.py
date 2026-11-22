@@ -7,10 +7,16 @@ import re
 from typing import Optional
 from urllib.parse import urlencode
 
+from cachetools import TTLCache
+
 from .net import fetch_json, get_breaker
 from .resilience import call_with_breaker
 
 BASE = "https://av-wiki.net/wp-json/wp/v2"
+
+# Bounded TTL caches: repeated /code and /idol calls never re-hit the API.
+_LOOKUP_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
+_TRANSLATE_CACHE: TTLCache = TTLCache(maxsize=512, ttl=86400)
 
 
 def _strip(raw: str) -> str:
@@ -76,16 +82,27 @@ async def to_vietnamese(text: str) -> str:
     """Translate Japanese -> Vietnamese; keep the original if the API is down."""
     if not text:
         return ""
+    cached = _TRANSLATE_CACHE.get(text)
+    if cached is not None:
+        return cached
 
-    def work() -> str:
-        from deep_translator import GoogleTranslator
-
-        return GoogleTranslator(source="ja", target="vi").translate(text)
-
-    async def call() -> str:
-        return await asyncio.to_thread(work)
-
-    return await call_with_breaker(get_breaker("ja-vi"), call, fallback=text)
+    # deep_translator hits translate.google.com which rate-limits aggressively.
+    # The gtx endpoint is the same service but tolerates our request rate.
+    url = (
+        "https://translate.googleapis.com/translate_a/single?"
+        + urlencode({"client": "gtx", "sl": "ja", "tl": "vi", "dt": "t", "q": text})
+    )
+    data = await fetch_json(url, name="ja-vi")
+    result = text
+    if isinstance(data, list) and data and isinstance(data[0], list):
+        translated = "".join(
+            str(segment[0]) for segment in data[0] if segment and segment[0]
+        )
+        if translated:
+            result = translated
+    if result != text:
+        _TRANSLATE_CACHE[text] = result
+    return result
 
 
 def clean_title(text: str) -> str:
@@ -114,15 +131,26 @@ def normalize_code(value: str) -> list[str]:
 
 
 async def search_code(code: str, limit: int = 3) -> list[dict]:
-    for candidate in normalize_code(code):
+    candidates = normalize_code(code)
+    key = ("code", candidates[0] if candidates else "", limit)
+    cached = _LOOKUP_CACHE.get(key)
+    if cached is not None:
+        return cached
+    for candidate in candidates:
         url = f"{BASE}/posts?{urlencode({'search': candidate, 'per_page': limit})}"
         data = await fetch_json(url, name="avwiki")
         if isinstance(data, list) and data:
-            return [parse_post(item) for item in data]
+            result = [parse_post(item) for item in data]
+            _LOOKUP_CACHE[key] = result
+            return result
     return []
 
 
 async def search_idol(name: str, limit: int = 5) -> Optional[dict]:
+    key = ("idol", name.strip(), limit)
+    cached = _LOOKUP_CACHE.get(key)
+    if cached is not None:
+        return cached
     tags_url = f"{BASE}/tags?{urlencode({'search': name.strip(), 'per_page': 10})}"
     tags = await fetch_json(tags_url, name="avwiki")
     if not isinstance(tags, list) or not tags:
@@ -131,9 +159,11 @@ async def search_idol(name: str, limit: int = 5) -> Optional[dict]:
     posts_url = f"{BASE}/posts?{urlencode({'tags': tag['id'], 'per_page': limit})}"
     posts = await fetch_json(posts_url, name="avwiki")
     works = [parse_post(item) for item in posts] if isinstance(posts, list) else []
-    return {
+    result = {
         "name": html.unescape(str(tag.get("name", ""))),
         "link": str(tag.get("link", "")),
         "count": tag.get("count", 0),
         "works": works,
     }
+    _LOOKUP_CACHE[key] = result
+    return result

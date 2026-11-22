@@ -5,6 +5,7 @@ import logging
 from datetime import date
 
 import discord
+from cachetools import TTLCache
 from discord.ext import commands
 
 from ..net import fetch_json
@@ -12,6 +13,7 @@ from ..net import fetch_json
 log = logging.getLogger(__name__)
 
 API = "https://giaxanghomnay.com/api/pvdate/"
+_PRICE_CACHE: TTLCache = TTLCache(maxsize=8, ttl=1800)
 
 
 def _collect(obj) -> list[dict]:
@@ -91,7 +93,12 @@ class GiaXang(commands.Cog):
         except Exception as exc:  # prefix invocation may not need defer at all
             log.debug("defer failed: %s", exc)
         today = date.today()
-        data = await fetch_json(API + today.strftime("%Y-%m-%d"), name="giaxang")
+        key = today.strftime("%Y-%m-%d")
+        data = _PRICE_CACHE.get(key)
+        if data is None:
+            data = await fetch_json(API + key, name="giaxang")
+            if data is not None:
+                _PRICE_CACHE[key] = data
         if data is None:
             await self.bot.safe_send(ctx, "Không lấy được giá xăng lúc này, thử lại sau.")
             return
