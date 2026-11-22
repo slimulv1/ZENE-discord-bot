@@ -103,6 +103,7 @@ class Config:
     required_extensions: tuple[str, ...] = (
         "zene_core.cogs.conversation",
         "zene_core.cogs.ops",
+        "zene_core.cogs.avwiki",
     )
     optional_extensions: tuple[str, ...] = (
         "zene.information",
@@ -112,7 +113,6 @@ class Config:
         "zene.nhentai",
         "zene.hannom",
         "zene.google_trans",
-        "zene.dmm_tracker",
     )
     log_level: str = "INFO"
     log_dir: Path = ROOT / "logs"
@@ -179,7 +179,7 @@ class Config:
             required_extensions=_env_csv(
                 env,
                 "ZENE_REQUIRED_EXTENSIONS",
-                "zene_core.cogs.conversation,zene_core.cogs.ops",
+                "zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki",
             ),
             optional_extensions=_env_csv(
                 env,
@@ -193,7 +193,6 @@ class Config:
                         "zene.nhentai",
                         "zene.hannom",
                         "zene.google_trans",
-                        "zene.dmm_tracker",
                     )
                 ),
             ),
