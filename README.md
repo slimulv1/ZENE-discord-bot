@@ -277,10 +277,12 @@ zene_core/
   supervisor.py         restart/backoff, signal, health server
   resilience.py         retry, circuit breaker, token bucket
   net.py                aiohttp session chung + breaker
-  assets.py             nạp Excel 1 lần, path an toàn, composite ảnh PNG
-  triggers.py/content.py registry trigger + nội dung meme
+  assets.py             nạp memes.json 1 lần, path an toàn, composite ảnh PNG
+  triggers.py/content.py registry trigger + loader nội dung meme
   avwiki.py             client av-wiki.net + dịch + ảnh FANZA
-  cogs/                 conversation, ops, avwiki, amlich, giaxang
+  cogs/                 conversation, ops, avwiki, amlich, giaxang, digest
+zene/data/memes.json    nguồn dữ liệu meme duy nhất
+docs/ADD_MEMES.md       hướng dẫn thêm meme bằng tay
 dmm/                    client DMM đã vá (thay dmm-search3)
 zene/                   cog legacy (NSFW, wiki, trans, nhentai…)
 tests/test_core.py      unit test thuần
@@ -316,6 +318,17 @@ python -m unittest discover -s tests -v
 
 Mọi thay đổi nên giữ: không commit `.env`, không log token, mọi HTTP phải có
 timeout + breaker, không blocking I/O trong async path.
+
+## 9. Thêm meme bằng tay
+
+Xem hướng dẫn đầy đủ tại **[docs/ADD_MEMES.md](docs/ADD_MEMES.md)**: thêm text
+trigger, contains trigger, ảnh ngẫu nhiên theo thư mục, câu chuyện ngẫu nhiên,
+asset command, nội dung cho lệnh có sẵn, validate JSON và restart đúng cách.
+
+Tóm tắt: sửa `zene/data/memes.json` → `python -m json.tool zene/data/memes.json`
+→ **restart cả process** (`z/restart` là chưa đủ) → thử trong Discord.
+
+---
 
 *Legacy `main.py` và `zene/communicate.py` được giữ để rollback; bản production
 luôn là `run.py`.*
