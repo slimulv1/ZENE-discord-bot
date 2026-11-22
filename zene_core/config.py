@@ -22,7 +22,7 @@ LEGACY_OWNER_ID = 262844868919951360
 
 DEFAULT_REQUIRED_EXTENSIONS = (
     "zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki,"
-    "zene_core.cogs.amlich,zene_core.cogs.giaxang"
+    "zene_core.cogs.amlich,zene_core.cogs.giaxang,zene_core.cogs.digest"
 )
 DEFAULT_OPTIONAL_EXTENSIONS = (
     "zene.information,zene.hentai_interact,zene.wiki,zene.van_mau,"
@@ -133,6 +133,11 @@ class Config:
     max_restarts: int = 10
     stable_seconds: float = 60.0
     boot_timeout: float = 120.0
+    digest_channel_id: int = 0
+    digest_hour: int = 6
+    digest_minute: int = 30
+    digest_timezone: str = "Asia/Ho_Chi_Minh"
+    digest_ping: bool = False
     health_host: str = "127.0.0.1"
     health_port: int = 8080
     max_asset_bytes: int = 8 * 1024 * 1024
@@ -201,6 +206,11 @@ class Config:
             max_restarts=max(0, _env_int(env, "ZENE_MAX_RESTARTS", 10)),
             stable_seconds=max(0.0, _env_float(env, "ZENE_STABLE_SECONDS", 60.0)),
             boot_timeout=max(10.0, _env_float(env, "ZENE_BOOT_TIMEOUT", 120.0)),
+            digest_channel_id=max(0, _env_int(env, "ZENE_DIGEST_CHANNEL_ID", 0)),
+            digest_hour=min(23, max(0, _env_int(env, "ZENE_DIGEST_HOUR", 6))),
+            digest_minute=min(59, max(0, _env_int(env, "ZENE_DIGEST_MINUTE", 30))),
+            digest_timezone=_clean(env.get("ZENE_DIGEST_TIMEZONE")) or "Asia/Ho_Chi_Minh",
+            digest_ping=_env_bool(env, "ZENE_DIGEST_PING", False),
             health_host=_clean(env.get("HEALTH_HOST")) or "127.0.0.1",
             health_port=_env_int(env, "HEALTH_PORT", 8080),
             max_asset_bytes=max(1024, _env_int(env, "ZENE_MAX_ASSET_BYTES", 8 * 1024 * 1024)),

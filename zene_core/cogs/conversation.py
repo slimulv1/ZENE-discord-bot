@@ -15,6 +15,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from ..content import ANXIN_STORIES, COMMAND_TEXTS
+from ..pagination import paginated_list
 from ..triggers import Response, normalize
 
 log = logging.getLogger(__name__)
@@ -187,14 +188,12 @@ class ConversationCog(commands.Cog):
     async def wake(self, ctx: commands.Context) -> None:
         await self._deliver(ctx, Response("file", "zene/data/video/wake.mp4"))
 
-    @commands.command(name="cmd")
+    @commands.hybrid_command(name="cmd", description="Danh sách lệnh asset")
+    @app_commands.checks.cooldown(1, 10)
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def cmd(self, ctx: commands.Context) -> None:
-        names = self.bot.assets.command_names
-        text = ", ".join(names) if names else "(chưa nạp được danh sách lệnh)"
-        if len(text) > 1900:
-            text = text[:1900] + "..."
-        await self.bot.safe_send(ctx, f"```{text}```")
+        names = list(self.bot.assets.command_names)
+        await paginated_list(ctx, "📜 Danh sách lệnh asset", names)
 
     @commands.command(name="hotro")
     @commands.cooldown(1, 30, commands.BucketType.guild)

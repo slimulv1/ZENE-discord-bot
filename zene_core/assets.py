@@ -10,6 +10,7 @@ Key fixes over the legacy cog:
 from __future__ import annotations
 
 import asyncio
+import json
 import logging
 import random
 import unicodedata
@@ -63,6 +64,22 @@ class AssetRegistry:
                 log.warning("Không đọc được command_link.xlsx: %s", exc)
         else:
             log.warning("Thiếu %s — bỏ qua mapping Excel", excel)
+
+        # Text overlay: easy to add new memes without editing the binary xlsx.
+        overlay = self.data_dir / "command_data" / "extra_commands.json"
+        if overlay.is_file():
+            try:
+                extra = json.loads(overlay.read_text(encoding="utf-8"))
+                added = 0
+                for command, location in extra.items():
+                    key = self._norm(command)
+                    rel = str(location).strip().replace("\\", "/")
+                    if key and rel and self.path_for(rel) is not None:
+                        self._by_command[key] = rel
+                        added += 1
+                log.info("asset registry: +%d mapping từ overlay JSON", added)
+            except (OSError, ValueError, TypeError) as exc:
+                log.warning("Không đọc được %s: %s", overlay, exc)
 
         for name in _IMAGE_FOLDERS:
             folder = self.data_dir / "image" / name

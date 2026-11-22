@@ -20,6 +20,7 @@ Bot có **40 lệnh prefix** (gõ `z/`, `Z/`, `h/` hoặc `H/` trước tên l�
 |---|---|---|
 | `/amlich` | Âm lịch hôm nay: can chi, tuổi xung, giờ Hoàng Đạo | hybrid |
 | `/avt` | Xem ảnh đại diện (embed ảnh 512px + link) | hybrid |
+| `/cmd` | Danh sách lệnh asset, có nút phân trang | hybrid |
 | `/code <arg>` | Tra cứu phim theo mã qua av-wiki.net | hybrid, **chỉ kênh NSFW** |
 | `/giaxanghomnay` | Giá xăng dầu Petrolimex 2 khu vực | hybrid |
 | `/haha` | Ghép avatar vào ảnh "3 chó tuyết" | hybrid |
@@ -84,6 +85,8 @@ nhắn từ bot khác, chặn path traversal.
 - **Resilience**: circuit breaker + retry + timeout cho mọi HTTP/SDK ngoài.
 - **aiohttp session dùng chung** + **cache TTL** (avwiki 5p, dịch 24h, giá xăng 30p).
 - **Health endpoint** `GET /health` trả JSON, `503` khi degraded.
+- **Bản tin hàng ngày** (tuỳ chọn): gửi âm lịch + giá xăng vào kênh chỉ định,
+  giờ được cấu hình theo timezone (`ZENE_DIGEST_CHANNEL_ID`).
 - **Log JSON xoay vòng** tại `logs/zene.log`, tự redact token.
 
 ---
@@ -251,6 +254,10 @@ curl http://localhost:8080/health
 | `ZENE_BOOT_TIMEOUT` | `120` | Timeout login (giây) |
 | `HEALTH_HOST` / `HEALTH_PORT` | `127.0.0.1:8080` | Health endpoint (`0` để tắt) |
 | `DMM_API_ID` / `DMM_AFFILIATE_ID` | rỗng | Chỉ cần cho `zene.dmm_tracker` (tắt mặc định) |
+| `ZENE_DIGEST_CHANNEL_ID` | `0` | Kênh nhận bản tin hàng ngày (`0` = tắt) |
+| `ZENE_DIGEST_HOUR` / `ZENE_DIGEST_MINUTE` | `6` / `30` | Giờ phát bản tin |
+| `ZENE_DIGEST_TIMEZONE` | `Asia/Ho_Chi_Minh` | Múi giờ của lịch phát |
+| `ZENE_DIGEST_PING` | `false` | Có `@everyone` trong bản tin không |
 
 Xem `config.example.txt` để có bản mẫu đầy đủ.
 
