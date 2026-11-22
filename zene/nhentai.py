@@ -31,7 +31,9 @@ class nhentai(commands.Cog):
                 doujin = Hentai(arg)
                 return doujin.title(Format.Pretty), doujin.url
 
-            title, url = await asyncio.to_thread(work)
+            title, url = await asyncio.wait_for(
+                asyncio.to_thread(work), timeout=15
+            )
             await ctx.send(f"**{title}: ** {url}")
         except Exception as exc:
             log.warning("nhentai lookup failed: %s", exc)
@@ -49,7 +51,13 @@ class nhentai(commands.Cog):
             def work():
                 return list(Utils.search_by_query(arg, sort=Sort.PopularWeek))[:5]
 
-            results = await asyncio.to_thread(work)
+            results = await asyncio.wait_for(
+                asyncio.to_thread(work), timeout=15
+            )
+        except asyncio.TimeoutError:
+            log.warning("nhentai search timeout")
+            await ctx.send("API đang phản hồi chậm, thử lại sau.")
+            return
         except Exception as exc:
             log.warning("nhentai search failed: %s", exc)
             await ctx.send("Không tìm thấy")
@@ -66,6 +74,9 @@ class nhentai(commands.Cog):
             except (IndexError, TypeError):
                 pass
             await ctx.send(embed=embed)
+
+        if not results:
+            await ctx.send("Không tìm thấy")
 
 
 async def setup(bot):

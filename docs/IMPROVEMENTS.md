@@ -170,6 +170,17 @@ Lệnh operator (prefix `z/`): `health`, `stats`, `extensions`, `reload <module>
 | `vnlunar` trả `ages` hoặc `conflicting_ages`, giờ Hoàng Đạo là list dict | `amlich.py`: đọc cả hai dạng, format từng dòng |
 | Hybrid command chưa sync | `bot.py`: `tree.sync()` trong `setup_hook`, lỗi sync chỉ warning |
 
+## 5c. Vòng rà soát critic (round 3)
+
+| Lỗi | Cách sửa |
+|---|---|
+| Tín hiệu SIGTERM tới lúc đang backoff → vẫn boot bot mới, không thoát được | `supervisor.py`: check shutdown ở đầu vòng lặp + `asyncio.Event` làm backoff bị ngắt ngay |
+| `failures` cộng dồn qua nhiều tuần → tự ngừng vĩnh viễn dù không crash-loop | reset `failures` nếu bot đã chạy ổn định ≥ `ZENE_STABLE_SECONDS` (mặc định 60s) |
+| Test unit lỗi do parser owner ID quá strict | bỏ ID sai, chỉ raise khi không còn ID hợp lệ |
+| `information.py` bare except che giấu lỗi thật | chỉ bắt `discord.HTTPException`, log warning |
+| `nhentai` search trả rỗng → im lặng; SDK không timeout | thêm thông báo "Không tìm thấy" + `wait_for(..., 15)` |
+| `dmm_tracker` truy cập `items[0]` không kiểm tra | helper `_first_item`/`_first_actress` + `.get()` + timeout 15s |
+
 ## 6. Ma trận quyết định thiết kế (ghi lại để tránh "over-engineer sai chỗ")
 
 | Ý tưởng bị loại | Lý do |

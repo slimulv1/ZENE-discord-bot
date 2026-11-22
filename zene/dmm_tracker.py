@@ -13,6 +13,23 @@ import dmm
 import json
 
 
+def _first_actress(payload):
+    try:
+        items = payload.get("result", {}).get("actress", [])
+        return items[0] if items else None
+    except (AttributeError, TypeError, IndexError):
+        return None
+
+
+def _first_item(payload):
+    """Return the first DMM item, or None for empty/unexpected payloads."""
+    try:
+        items = payload.get("result", {}).get("items", [])
+        return items[0] if items else None
+    except (AttributeError, TypeError, IndexError):
+        return None
+
+
 async def _translate(translator, text):
     """deep-translator is blocking — keep it off the event loop."""
     return await asyncio.to_thread(translator.translate, str(text))
@@ -44,27 +61,35 @@ class dmm_tracker(commands.Cog):
 
         api = dmm.API(api_id=api_id, affiliate_id=affiliate_id)
 
-        item_search = await asyncio.to_thread(
-            api.item_search, site="FANZA", service='digital', keyword=arg, output='json'
+        item_search = await asyncio.wait_for(
+            asyncio.to_thread(
+                api.item_search, site="FANZA", service='digital', keyword=arg, output='json'
+            ),
+            timeout=15,
         )
 
         data = json.dumps(item_search)
         collect_data = json.loads(data)
+        item = _first_item(collect_data)
+        if item is None:
+            await ctx.send("Không tìm thấy mã này trên DMM.")
+            return
 
-        product_title = collect_data["result"]["items"][0]["title"]
-        affiliate_url = collect_data["result"]["items"][0]["affiliateURL"]
-        volume = collect_data["result"]["items"][0]["volume"]
-        image_url = collect_data["result"]["items"][0]["imageURL"]["large"]
-        mega = collect_data["result"]["items"][0]["iteminfo"]["maker"][0]["name"]
-        date = collect_data["result"]["items"][0]["date"]
-        product_id = collect_data["result"]["items"][0]["product_id"]
+        product_title = item.get("title", "")
+        affiliate_url = item.get("affiliateURL", "")
+        volume = item.get("volume", "")
+        image_url = (item.get("imageURL") or {}).get("large", "")
+        makers = (item.get("iteminfo") or {}).get("maker") or [{}]
+        mega = makers[0].get("name", "")
+        date = item.get("date", "")
+        product_id = item.get("product_id", "")
 
         #embed_description = []
         actress_lst = []
         price_lst = []
 
         #try: 
-            #sampleURL = collect_data["result"]["items"][0]["sampleMovieURL"]["size_476_306"]
+            #sampleURL = item["sampleMovieURL"]["size_476_306"]
             #embed_description = f'[Xem thử ngay]({sampleURL})'
 
         #except:
@@ -74,14 +99,14 @@ class dmm_tracker(commands.Cog):
 
         try:
 
-            for price in collect_data["result"]["items"][0]["prices"]["deliveries"]["delivery"][0:3]:
+            for price in item["prices"]["deliveries"]["delivery"][0:3]:
                 price_lst.append(price["price"] + ' JPY')
 
         except:
             price_lst = ['None']
 
         try:
-            for actress_name in collect_data["result"]["items"][0]["iteminfo"]["actress"]:
+            for actress_name in item["iteminfo"]["actress"]:
                 actress_lst.append(f'**{actress_name["name"]}**' + f'【{actress_name["ruby"]}】')
         
         except:
@@ -154,27 +179,34 @@ class dmm_tracker(commands.Cog):
 
         api = dmm.API(api_id=api_id, affiliate_id=affiliate_id)
 
-        actress_search = await asyncio.to_thread(
-            api.actress_search, site="FANZA", keyword=arg, output='json'
+        actress_search = await asyncio.wait_for(
+            asyncio.to_thread(
+                api.actress_search, site="FANZA", keyword=arg, output='json'
+            ),
+            timeout=15,
         )
 
         data = json.dumps(actress_search)
         collect_data = json.loads(data)
+        actress = _first_actress(collect_data)
+        if actress is None:
+            await ctx.send("Không tìm thấy diễn viên này trên DMM.")
+            return
 
-        actress_name = collect_data["result"]["actress"][0]["name"]
-        actress_ruby = collect_data["result"]["actress"][0]["ruby"]
-        actress_digitalURL = collect_data["result"]["actress"][0]["listURL"]["digital"]
-        bust = collect_data["result"]["actress"][0]["bust"]
-        waist = collect_data["result"]["actress"][0]["waist"]
-        hip = collect_data["result"]["actress"][0]["hip"]
-        height = collect_data["result"]["actress"][0]["height"]
-        birthday = collect_data["result"]["actress"][0]["birthday"]
-        hobby = collect_data["result"]["actress"][0]["hobby"]
-        birthplace = collect_data["result"]["actress"][0]["prefectures"]
-        imageURL = collect_data["result"]["actress"][0]["imageURL"]["large"]
+        actress_name = actress["name"]
+        actress_ruby = actress["ruby"]
+        actress_digitalURL = actress["listURL"]["digital"]
+        bust = actress["bust"]
+        waist = actress["waist"]
+        hip = actress["hip"]
+        height = actress["height"]
+        birthday = actress["birthday"]
+        hobby = actress["hobby"]
+        birthplace = actress["prefectures"]
+        imageURL = actress["imageURL"]["large"]
 
         try: 
-            bust_cup = collect_data["result"]["actress"][0]["cup"]
+            bust_cup = actress["cup"]
         except: 
             bust_cup = ''
 

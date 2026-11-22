@@ -27,9 +27,11 @@ class Supervisor:
         self.started_at = time.monotonic()
         self._bot: Optional[ZeneBot] = None
         self._health_server: Optional[asyncio.AbstractServer] = None
+        self._shutdown_event: Optional[asyncio.Event] = None
 
     # ------------------------------------------------------------- lifecycle --
     async def run(self) -> None:
+        self._shutdown_event = asyncio.Event()
         await self._start_health_server()
         try:
             await self._supervise()
@@ -40,6 +42,11 @@ class Supervisor:
         failures = 0
         first_boot = True
         while True:
+            # A signal may arrive while we are backing off; never boot a new
+            # client after shutdown was requested.
+            if self.state.shutdown_requested:
+                log.info("shutdown requested trước khi boot — kết thúc supervisor")
+                return
             if not first_boot:
                 # Count every respawn (crash or operator request), not just /restart.
                 self.state.restarts += 1
@@ -78,6 +85,11 @@ class Supervisor:
             finally:
                 self._bot = None
 
+            # A crash after a long healthy run is an isolated incident, not a
+            # crash-loop: decay the failure counter instead of accumulating it.
+            if (time.monotonic() - bot.started_at) >= self.config.stable_seconds:
+                failures = 0
+
             if self.state.shutdown_requested:
                 log.info("shutdown requested — kết thúc supervisor")
                 return
@@ -104,11 +116,21 @@ class Supervisor:
             )
             delay *= 1.0 + random.uniform(-0.2, 0.2)
             log.warning("sẽ khởi động lại sau %.1fs (failures=%d)", max(0.0, delay), failures)
-            await asyncio.sleep(max(0.0, delay))
+            if self._shutdown_event is not None:
+                try:
+                    await asyncio.wait_for(
+                        self._shutdown_event.wait(), timeout=max(0.0, delay)
+                    )
+                except asyncio.TimeoutError:
+                    pass
+            else:
+                await asyncio.sleep(max(0.0, delay))
 
     def request_shutdown(self) -> None:
         """Called from a signal handler running inside the event loop."""
         self.state.shutdown_requested = True
+        if self._shutdown_event is not None:
+            self._shutdown_event.set()
         bot = self._bot
         if bot is not None and not getattr(bot, "_closing", False) and not bot.is_closed():
             asyncio.get_running_loop().create_task(bot.close())

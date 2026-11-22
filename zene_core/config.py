@@ -6,6 +6,7 @@ used as a *migration fallback* and its value is never logged (``repr=False``).
 from __future__ import annotations
 
 import json
+import logging
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -74,9 +75,12 @@ def _env_ids(env: Mapping[str, str], name: str, default: frozenset[int]) -> froz
             ids.add(int(item))
         except ValueError:
             invalid.append(item)
-    # A typo must not silently grant the historical owner admin by accident.
-    if invalid or not ids:
-        raise ConfigurationError(f"{name} chứa ID không hợp lệ: {invalid or [raw]}")
+    # Skip typos; only fail when no usable ID remains (an empty admin set
+    # would lock every operator command out with no warning).
+    if not ids:
+        raise ConfigurationError(f"{name} không có ID hợp lệ nào")
+    if invalid:
+        logging.getLogger(__name__).warning("bỏ qua ID không hợp lệ trong %s: %s", name, invalid)
     return frozenset(ids)
 
 
@@ -131,6 +135,7 @@ class Config:
     backoff_base: float = 1.0
     backoff_cap: float = 60.0
     max_restarts: int = 10
+    stable_seconds: float = 60.0
     boot_timeout: float = 120.0
     health_host: str = "127.0.0.1"
     health_port: int = 8080
@@ -212,6 +217,7 @@ class Config:
             backoff_base=max(0.0, _env_float(env, "ZENE_BACKOFF_BASE", 1.0)),
             backoff_cap=max(1.0, _env_float(env, "ZENE_BACKOFF_CAP", 60.0)),
             max_restarts=max(0, _env_int(env, "ZENE_MAX_RESTARTS", 10)),
+            stable_seconds=max(0.0, _env_float(env, "ZENE_STABLE_SECONDS", 60.0)),
             boot_timeout=max(10.0, _env_float(env, "ZENE_BOOT_TIMEOUT", 120.0)),
             health_host=_clean(env.get("HEALTH_HOST")) or "127.0.0.1",
             health_port=_env_int(env, "HEALTH_PORT", 8080),
