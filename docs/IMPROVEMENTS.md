@@ -159,6 +159,17 @@ Lệnh operator (prefix `z/`): `health`, `stats`, `extensions`, `reload <module>
   `aiohttp` (Phase 2). Trên Windows native, `loop.add_signal_handler` không dùng
   được → dừng graceful bằng Ctrl+C; trên Docker/Linux SIGTERM hoạt động bình thường.
 
+## 5b. Vòng rà soát lỗi ẩn (round 2)
+
+| Lỗi ẩn | Cách sửa |
+|---|---|
+| `connect()` trả về bình thường không tăng `failures` → respawn không backoff | `supervisor.py`: mỗi lần thoát không phải shutdown/restart đều tính là crash |
+| Slash command lỗi chỉ hiện "interaction failed" | `bot.py`: `tree.on_error` trả ephemeral message có phân loại cooldown/quyền/lỗi hệ thống |
+| `ctx.defer()` có thể lỗi ở prefix | `amlich.py`, `giaxang.py`: bọc try/except, prefix vẫn chạy |
+| `nhentai`/`search` block event loop + bare except | `zene/nhentai.py`: `asyncio.to_thread`, log cảnh báo, fallback degraded |
+| `vnlunar` trả `ages` hoặc `conflicting_ages`, giờ Hoàng Đạo là list dict | `amlich.py`: đọc cả hai dạng, format từng dòng |
+| Hybrid command chưa sync | `bot.py`: `tree.sync()` trong `setup_hook`, lỗi sync chỉ warning |
+
 ## 6. Ma trận quyết định thiết kế (ghi lại để tránh "over-engineer sai chỗ")
 
 | Ý tưởng bị loại | Lý do |
