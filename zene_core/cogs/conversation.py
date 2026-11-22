@@ -10,6 +10,7 @@ import random
 from typing import Optional
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from ..content import ANXIN_STORIES, COMMAND_TEXTS
@@ -99,35 +100,57 @@ class ConversationCog(commands.Cog):
             await self.bot.safe_send(target, "Bot đang lag nhẹ, thử lại sau nhé.")
 
     async def _composite(self, target, spec, user=None) -> None:
-        base, box, size = spec
+        base, box, size, *rest = spec
+        mask = rest[0] if rest else None
         author = user or target.author
         avatar = author.avatar or author.display_avatar
+        try:
+            # Avoid animated GIF frames / palette quirks — always get a static PNG.
+            avatar = avatar.with_static_format("png")
+        except Exception:
+            pass
         avatar_bytes = await avatar.read()
-        output = await self.bot.assets.composite_avatar(base, avatar_bytes, box, size)
+        output = await self.bot.assets.composite_avatar(
+            base, avatar_bytes, box, size, mask
+        )
         if output is None:
             await self.bot.safe_send(target, "Không xử lý được ảnh lúc này.")
             return
         await self.bot.safe_send(
-            target, file=discord.File(output, filename="zene-composite.jpg")
+            target, file=discord.File(output, filename="zene-composite.png")
         )
 
     # -------------------------------------------------------------- commands --
-    @commands.command(name="avt")
+    @commands.hybrid_command(name="avt", description="Xem ảnh đại diện")
+    @app_commands.checks.cooldown(1, 3)
     @commands.cooldown(1, 3, commands.BucketType.user)
     async def avt(self, ctx: commands.Context, member: Optional[discord.User] = None) -> None:
         user = member or ctx.author
         avatar = user.avatar or user.display_avatar
-        await self.bot.safe_send(ctx, str(avatar.url))
+        embed = discord.Embed(
+            title=f"Ảnh đại diện của {user.display_name}",
+            url=avatar.url,
+            color=discord.Colour.blurple(),
+        )
+        try:
+            embed.set_image(url=avatar.with_size(512).url)
+        except Exception:
+            embed.set_image(url=avatar.url)
+        await self.bot.safe_send(ctx, embed=embed)
 
-    @commands.command(name="haha")
+    @commands.hybrid_command(name="haha", description="Ghép avatar vào ảnh haha")
+    @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
-    async def haha(self, ctx: commands.Context, member: Optional[discord.Member] = None) -> None:
+    async def haha(self, ctx: commands.Context, member: Optional[discord.User] = None) -> None:
         target = member or ctx.author
         await self._deliver(
             ctx,
             Response(
                 "composite",
-                (("zene/data/image/haha.jpg", (470, 120), (256, 256)), target),
+                (
+                    ("zene/data/image/haha.jpg", (470, 120), (256, 256), "ellipse"),
+                    target,
+                ),
             ),
         )
 
@@ -140,7 +163,7 @@ class ConversationCog(commands.Cog):
             Response(
                 "composite",
                 (
-                    ("zene/data/image/tv/FB_IMG_1573133316104.jpg", (95, 115), (100, 100)),
+                    ("zene/data/image/tv/FB_IMG_1573133316104.jpg", (95, 115), (100, 100), None),
                     target,
                 ),
             ),

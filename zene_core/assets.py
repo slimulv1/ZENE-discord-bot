@@ -135,12 +135,16 @@ class AssetRegistry:
         avatar_bytes: bytes,
         box: tuple[int, int],
         size: tuple[int, int] = (256, 256),
+        mask: Optional[str] = "ellipse",
     ) -> Optional[BytesIO]:
-        """Paste a member avatar onto a base image entirely in memory."""
+        """Paste a member avatar onto a base image, entirely in memory.
 
+        Quality pipeline (Pillow): EXIF-oriented base -> high-quality LANCZOS
+        fit -> mild unsharp -> soft-edged elliptical mask -> lossless PNG.
+        """
         def work() -> Optional[BytesIO]:
             try:
-                from PIL import Image
+                from PIL import Image, ImageChops, ImageDraw, ImageFilter, ImageOps
             except ImportError:
                 log.warning("Thiếu Pillow — bỏ qua lệnh composite avatar")
                 return None
@@ -148,15 +152,31 @@ class AssetRegistry:
             if base_path is None:
                 return None
             try:
-                with Image.open(base_path) as base_img:
-                    base = base_img.convert("RGBA")
-                with Image.open(BytesIO(avatar_bytes)) as avatar_img:
-                    avatar = avatar_img.convert("RGBA").resize(size, Image.LANCZOS)
-                layer = Image.new("RGBA", base.size, (0, 0, 0, 0))
-                layer.paste(avatar, box)
-                merged = Image.alpha_composite(base, layer).convert("RGB")
+                with Image.open(base_path) as raw_base:
+                    base = ImageOps.exif_transpose(raw_base).convert("RGBA")
+                with Image.open(BytesIO(avatar_bytes)) as raw_avatar:
+                    avatar = ImageOps.exif_transpose(raw_avatar).convert("RGBA")
+
+                # Preserve aspect ratio, crop to the exact box, resample well.
+                avatar = ImageOps.fit(
+                    avatar, size, method=Image.Resampling.LANCZOS, centering=(0.5, 0.5)
+                )
+                avatar = avatar.filter(
+                    ImageFilter.UnsharpMask(radius=1, percent=70, threshold=3)
+                )
+
+                if mask == "ellipse":
+                    shape = Image.new("L", size, 0)
+                    draw = ImageDraw.Draw(shape)
+                    draw.ellipse((1, 1, size[0] - 2, size[1] - 2), fill=255)
+                    shape = shape.filter(ImageFilter.GaussianBlur(2))
+                    blend = ImageChops.multiply(avatar.getchannel("A"), shape)
+                else:
+                    blend = avatar.getchannel("A")
+
+                base.paste(avatar, box, blend)
                 output = BytesIO()
-                merged.save(output, format="JPEG", quality=90)
+                base.convert("RGB").save(output, format="PNG", optimize=True)
                 output.seek(0)
                 return output
             except Exception as exc:  # noqa: BLE001 - malformed avatar must not crash
