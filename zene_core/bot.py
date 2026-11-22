@@ -8,6 +8,7 @@ from collections import Counter
 from typing import Optional
 
 import discord
+from discord import app_commands
 from discord.ext import commands
 
 from .assets import AssetRegistry
@@ -56,6 +57,7 @@ class ZeneBot(commands.Bot):
         for extension in self.config.optional_extensions:
             await self._load_extension(extension, required=False)
 
+        self.tree.on_error = self._on_tree_error
         try:
             synced = await self.tree.sync()
             log.info("slash commands synced: %d", len(synced))
@@ -130,6 +132,28 @@ class ZeneBot(commands.Bot):
             return
         log.error("command error", exc_info=error)
         await self.safe_send(context, "Lỗi nội bộ, đã ghi log. Thử lại sau nhé.")
+
+    async def _on_tree_error(
+        self,
+        interaction: discord.Interaction,
+        command,
+        error: Exception,
+    ) -> None:
+        """Slash-command errors need their own boundary (prefix uses on_command_error)."""
+        if isinstance(error, app_commands.CommandOnCooldown):
+            message = f"Chill đã bạn ơi... thử lại sau {error.retry_after:.1f}s."
+        elif isinstance(error, app_commands.CheckFailure):
+            message = "Bạn không có quyền dùng lệnh này."
+        else:
+            log.error("slash command error: %s", getattr(command, "name", "?"), exc_info=error)
+            message = "Lỗi nội bộ, đã ghi log. Thử lại sau nhé."
+        try:
+            if interaction.response.is_done():
+                await interaction.followup.send(message, ephemeral=True)
+            else:
+                await interaction.response.send_message(message, ephemeral=True)
+        except discord.HTTPException:
+            pass
 
     # --------------------------------------------------------------- helpers --
     async def safe_send(self, target, content: Optional[str] = None, **kwargs):

@@ -1,12 +1,15 @@
 """Today's fuel prices (prefix + slash), from giaxanghomnay.com."""
 from __future__ import annotations
 
+import logging
 from datetime import date
 
 import discord
 from discord.ext import commands
 
 from ..net import fetch_json
+
+log = logging.getLogger(__name__)
 
 API = "https://giaxanghomnay.com/api/pvdate/"
 
@@ -83,7 +86,10 @@ class GiaXang(commands.Cog):
 
     @commands.hybrid_command(name="giaxanghomnay", description="Giá xăng hôm nay")
     async def giaxanghomnay(self, ctx: commands.Context) -> None:
-        await ctx.defer()
+        try:
+            await ctx.defer()
+        except Exception as exc:  # prefix invocation may not need defer at all
+            log.debug("defer failed: %s", exc)
         today = date.today()
         data = await fetch_json(API + today.strftime("%Y-%m-%d"), name="giaxang")
         if data is None:

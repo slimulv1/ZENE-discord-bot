@@ -46,6 +46,7 @@ class Supervisor:
             first_boot = False
             bot = self.factory(self.config, self.state)
             self._bot = bot
+            counted = False
             try:
                 log.info("boot attempt %d (restarts=%d)", failures + 1, self.state.restarts)
                 # ``async with`` guarantees close() on every exit path.
@@ -68,9 +69,11 @@ class Supervisor:
                 return
             except asyncio.TimeoutError:
                 failures += 1
+                counted = True
                 log.error("Login quá thời gian (%ss)", self.config.boot_timeout)
             except Exception as exc:  # noqa: BLE001 - supervisor boundary
                 failures += 1
+                counted = True
                 log.error("bot crashed: %s: %s", type(exc).__name__, exc)
             finally:
                 self._bot = None
@@ -84,6 +87,12 @@ class Supervisor:
                 failures = 0
                 log.info("restart có chủ đích — khởi tạo lại bot trong cùng process")
                 continue
+
+            if not counted:
+                # connect() returning without an explicit stop is abnormal —
+                # counting it prevents a zero-delay respawn loop.
+                failures += 1
+                log.error("bot.connect() trả về bất thường — tính là crash")
 
             if failures > self.config.max_restarts:
                 log.critical("vượt quá %d lần restart — dừng để tránh crash-loop", self.config.max_restarts)
