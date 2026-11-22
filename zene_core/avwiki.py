@@ -1,12 +1,14 @@
 """av-wiki.net WordPress REST client for /code and /idol."""
 from __future__ import annotations
 
+import asyncio
 import html
 import re
 from typing import Optional
 from urllib.parse import urlencode
 
-from .net import fetch_json
+from .net import fetch_json, get_breaker
+from .resilience import call_with_breaker
 
 BASE = "https://av-wiki.net/wp-json/wp/v2"
 
@@ -36,6 +38,38 @@ def parse_post(post: dict) -> dict:
         "date": _field(content, "配信開始日"),
         "image": image.group(1) if image else "",
     }
+
+
+async def dmm_image(code: str, api_id: str, affiliate_id: str) -> str:
+    """Fallback cover URL from FANZA/DMM. Credentials come from env-backed Config."""
+    if not code or not api_id or not affiliate_id:
+        return ""
+
+    def work() -> str:
+        import dmm
+
+        api = dmm.API(api_id=api_id, affiliate_id=affiliate_id)
+        for kwargs in (
+            {"site": "FANZA", "service": "digital", "keyword": code, "output": "json"},
+            {"site": "FANZA", "keyword": code, "output": "json"},
+        ):
+            try:
+                result = api.item_search(**kwargs)
+                items = result.get("result", {}).get("items", [])
+                if not items:
+                    continue
+                urls = items[0].get("imageURL", {})
+                return urls.get("large") or urls.get("medium") or ""
+            except Exception:
+                continue
+        return ""
+
+    async def call() -> str:
+        return await asyncio.to_thread(work)
+
+    return await call_with_breaker(
+        get_breaker("dmm-image"), call, fallback=""
+    )
 
 
 def normalize_code(value: str) -> list[str]:

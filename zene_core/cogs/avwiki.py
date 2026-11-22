@@ -4,7 +4,7 @@ from __future__ import annotations
 import discord
 from discord.ext import commands
 
-from ..avwiki import search_code, search_idol
+from ..avwiki import dmm_image, search_code, search_idol
 
 NOT_NSFW = "Lệnh này chỉ dùng được trong kênh NSFW."
 
@@ -44,8 +44,15 @@ class AvWikiCog(commands.Cog):
         ):
             if item.get(key):
                 embed.add_field(name=name, value=_clip(item[key], 200), inline=True)
-        if item["image"].startswith(("http://", "https://")):
-            embed.set_image(url=item["image"])
+        image = item["image"]
+        if not image.startswith(("http://", "https://")):
+            image = await dmm_image(
+                item["code"] or arg,
+                self.bot.config.dmm_api_id,
+                self.bot.config.dmm_affiliate_id,
+            )
+        if image.startswith(("http://", "https://")):
+            embed.set_image(url=image)
         await self.bot.safe_send(ctx, embed=embed)
 
     @commands.command(name="idol")

@@ -90,5 +90,10 @@ async def fetch_text(
     )
 
 
+def get_breaker(name: str) -> CircuitBreaker:
+    """Public accessor so other adapters can share the same breaker registry."""
+    return _breaker(name)
+
+
 def breaker_snapshot() -> dict[str, str]:
     return {name: breaker.state for name, breaker in _BREAKERS.items()}
