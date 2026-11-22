@@ -279,6 +279,16 @@ Xem `config.example.txt` để có file mẫu đầy đủ.
 Mở trình duyệt vào:
 
 ```
+http://127.0.0.1:8080/
+```
+
+Bạn sẽ thấy trang trạng thái dễ nhìn: bot có khỏe không, chạy được bao lâu,
+đã restart mấy lần, meme được gọi bao nhiêu lần, phần nào đang lỗi. Trang tự
+cập nhật 5 giây một lần và dùng được cả trên điện thoại.
+
+Nếu chỉ muốn dữ liệu dạng JSON (Docker healthcheck dùng cái này), mở:
+
+```
 http://127.0.0.1:8080/health
 ```
 

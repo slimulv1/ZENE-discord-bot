@@ -14,6 +14,7 @@ import discord
 
 from .bot import ZeneBot
 from .config import Config
+from .dashboard import DASHBOARD_HTML
 from .state import RuntimeState
 
 log = logging.getLogger(__name__)
@@ -145,7 +146,7 @@ class Supervisor:
                 self._handle_health, self.config.health_host, self.config.health_port
             )
             log.info(
-                "health endpoint: http://%s:%d/health",
+                "status page: http://%s:%d/  |  health JSON: /health",
                 self.config.health_host,
                 self.config.health_port,
             )
@@ -158,6 +159,22 @@ class Supervisor:
             await self._health_server.wait_closed()
             self._health_server = None
 
+    def _health_payload(self) -> tuple[dict, bool]:
+        bot = self._bot
+        ready = bool(bot is not None and bot.is_ready())
+        degraded = bool(bot is not None and (bot.failed_extensions or bot.stats["missing_assets"]))
+        healthy = ready and not degraded and not self.state.shutdown_requested
+        payload = {
+            "status": "ok" if healthy else "degraded",
+            "ready": ready,
+            "uptime_seconds": round(time.monotonic() - self.started_at, 1),
+            "restarts": self.state.restarts,
+            "failed_extensions": sorted(bot.failed_extensions) if bot else [],
+            "stats": dict(bot.stats) if bot else {},
+            "asset_commands": bot.assets.command_count if bot else 0,
+        }
+        return payload, healthy
+
     async def _handle_health(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
@@ -167,33 +184,32 @@ class Supervisor:
                 .decode("utf-8", "replace")
                 .strip()
             )
-            if not request_line.upper().startswith("GET /health"):
-                writer.write(
-                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
-                )
-                await writer.drain()
-                return
-            bot = self._bot
-            ready = bool(bot is not None and bot.is_ready())
-            degraded = bool(
-                bot is not None and (bot.failed_extensions or bot.stats["missing_assets"])
-            )
-            healthy = ready and not degraded and not self.state.shutdown_requested
-            payload = {
-                "status": "ok" if healthy else "degraded",
-                "ready": ready,
-                "uptime_seconds": round(time.monotonic() - self.started_at, 1),
-                "restarts": self.state.restarts,
-                "failed_extensions": sorted(bot.failed_extensions) if bot else [],
-                "stats": dict(bot.stats) if bot else {},
-                "asset_commands": bot.assets.command_count if bot else 0,
-            }
-            raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
-            status_line = "200 OK" if healthy else "503 Service Unavailable"
+            parts = request_line.split()
+            path = parts[1].split("?", 1)[0] if len(parts) >= 2 else ""
+
+            if path in {"/", "/index.html", "/status"}:
+                raw = DASHBOARD_HTML.encode("utf-8")
+                content_type = "text/html; charset=utf-8"
+                status_line = "200 OK"
+            elif path == "/health":
+                payload, healthy = self._health_payload()
+                raw = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+                content_type = "application/json; charset=utf-8"
+                status_line = "200 OK" if healthy else "503 Service Unavailable"
+            elif path == "/favicon.ico":
+                raw = b""
+                content_type = "image/x-icon"
+                status_line = "204 No Content"
+            else:
+                raw = b""
+                content_type = "text/plain; charset=utf-8"
+                status_line = "404 Not Found"
+
             header = (
                 f"HTTP/1.1 {status_line}\r\n"
-                "Content-Type: application/json; charset=utf-8\r\n"
+                f"Content-Type: {content_type}\r\n"
                 f"Content-Length: {len(raw)}\r\n"
+                "Cache-Control: no-store\r\n"
                 "Connection: close\r\n\r\n"
             ).encode("ascii")
             writer.write(header + raw)
