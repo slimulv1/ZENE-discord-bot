@@ -1,7 +1,7 @@
 # Secrets — never commit
 .env
 .env.*
-!.env.example
+!config.example.txt
 zene/TOKEN.json
 
 # Python artifacts

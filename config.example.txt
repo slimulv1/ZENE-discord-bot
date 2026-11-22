@@ -1,0 +1,40 @@
+# Copy this file to .env and fill in the values.
+# NEVER commit the real .env file.
+DISCORD_TOKEN=CHANGEME
+
+# Owner IDs (comma separated). Defaults to the legacy owner id if empty.
+ZENE_OWNER_IDS=262844868919951360
+
+# Prefix commands (comma separated)
+ZENE_PREFIXES=z/,Z/,h/,H/
+
+# Logging
+ZENE_LOG_LEVEL=INFO
+ZENE_LOG_DIR=./logs
+
+# Optional cog toggles (comma separated module paths)
+ZENE_REQUIRED_EXTENSIONS=zene_core.cogs.conversation,zene_core.cogs.ops
+ZENE_OPTIONAL_EXTENSIONS=zene.information,zene.hentai_interact,zene.wiki,zene.van_mau,zene.nhentai,zene.hannom,zene.google_trans,zene.dmm_tracker
+ZENE_DISABLED_EXTENSIONS=
+
+# Resilience
+ZENE_REQUEST_TIMEOUT=10
+ZENE_TRIGGER_COOLDOWN=1.5
+ZENE_RETRY_ATTEMPTS=3
+ZENE_BACKOFF_BASE=1
+ZENE_BACKOFF_CAP=60
+ZENE_MAX_RESTARTS=10
+ZENE_BOOT_TIMEOUT=120
+
+# Optional DMM/FANZA credentials for zene.dmm_tracker
+DMM_API_ID=
+DMM_AFFILIATE_ID=
+
+# Privileged intents (off by default)
+ZENE_MEMBERS_INTENT=false
+ZENE_IGNORE_BOTS=true
+ZENE_NSFW_ENABLED=true
+
+# Health endpoint (set HEALTH_PORT=0 to disable)
+HEALTH_HOST=0.0.0.0
+HEALTH_PORT=8080

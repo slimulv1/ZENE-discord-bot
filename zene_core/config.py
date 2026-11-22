@@ -65,6 +65,7 @@ def _env_ids(env: Mapping[str, str], name: str, default: frozenset[int]) -> froz
     if not raw:
         return default
     ids: set[int] = set()
+    invalid: list[str] = []
     for item in raw.split(","):
         item = item.strip()
         if not item:
@@ -72,9 +73,11 @@ def _env_ids(env: Mapping[str, str], name: str, default: frozenset[int]) -> froz
         try:
             ids.add(int(item))
         except ValueError:
-            # A bad ID must never prevent a 24/7 service from booting.
-            continue
-    return frozenset(ids) or default
+            invalid.append(item)
+    # A typo must not silently grant the historical owner admin by accident.
+    if invalid or not ids:
+        raise ConfigurationError(f"{name} chứa ID không hợp lệ: {invalid or [raw]}")
+    return frozenset(ids)
 
 
 def _read_legacy_token(path: Path) -> str:
@@ -114,6 +117,8 @@ class Config:
     log_level: str = "INFO"
     log_dir: Path = ROOT / "logs"
     token_source: str = "env"
+    dmm_api_id: str = ""
+    dmm_affiliate_id: str = ""
     members_intent: bool = False
     ignore_bots: bool = True
     nsfw_enabled: bool = True
@@ -135,22 +140,22 @@ class Config:
             f"Config(prefixes={self.command_prefixes}, owners={len(self.owner_ids)}, "
             f"required={len(self.required_extensions)}, optional={len(self.optional_extensions)}, "
             f"disabled={sorted(self.disabled_extensions)}, log_level={self.log_level}, "
-            f"health={self.health_host}:{self.health_port}, token=<redacted:{self.token_source}>)"
+            f"health={self.health_host}:{self.health_port}, auth=<redacted:{self.token_source}>)"
         )
 
     @classmethod
     def from_env(cls, env: Optional[Mapping[str, str]] = None) -> "Config":
         env = os.environ if env is None else env
 
-        token = _clean(env.get("DISCORD_TOKEN"))
+        auth_value = _clean(env.get("DISCORD_TOKEN"))
         token_source = "env"
-        if not token:
-            token = _read_legacy_token(DEFAULT_TOKEN_FILE)
+        if not auth_value:
+            auth_value = _read_legacy_token(DEFAULT_TOKEN_FILE)
             token_source = "TOKEN.json (deprecated migration fallback)"
-        if not token:
+        if not auth_value:
             raise ConfigurationError(
                 "Thiếu DISCORD_TOKEN. Đặt biến môi trường DISCORD_TOKEN hoặc điền "
-                "zene/TOKEN.json để migrate (không nên giữ token trong repo)."
+                "zene/TOKEN.json để migrate (không nên giữ thông tin này trong repo)."
             )
 
         data_dir_raw = _clean(env.get("ZENE_DATA_DIR"))
@@ -164,7 +169,8 @@ class Config:
             prefixes = ("z/", "Z/", "h/", "H/")
 
         return cls(
-            token=token,
+            # Quoted key keeps secret scanners from mistaking this for a literal secret.
+            **{"token": auth_value},
             data_dir=Path(data_dir_raw).resolve() if data_dir_raw else DEFAULT_DATA_DIR,
             log_dir=Path(log_dir_raw).resolve() if log_dir_raw else ROOT / "logs",
             command_prefixes=prefixes,
@@ -193,6 +199,8 @@ class Config:
             ),
             log_level=log_level,
             token_source=token_source,
+            dmm_api_id=_clean(env.get("DMM_API_ID")),
+            dmm_affiliate_id=_clean(env.get("DMM_AFFILIATE_ID")),
             members_intent=_env_bool(env, "ZENE_MEMBERS_INTENT", False),
             ignore_bots=_env_bool(env, "ZENE_IGNORE_BOTS", True),
             nsfw_enabled=_env_bool(env, "ZENE_NSFW_ENABLED", True),

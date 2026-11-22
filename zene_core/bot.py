@@ -122,7 +122,7 @@ class ZeneBot(commands.Bot):
         if isinstance(error, commands.NoPrivateMessage):
             await self.safe_send(context, "Lệnh này chỉ dùng trong server.")
             return
-        log.error("command error: %s", error, exc_info=error)
+        log.error("command error", exc_info=error)
         await self.safe_send(context, "Lỗi nội bộ, đã ghi log. Thử lại sau nhé.")
 
     # --------------------------------------------------------------- helpers --

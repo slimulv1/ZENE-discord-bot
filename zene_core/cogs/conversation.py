@@ -13,7 +13,7 @@ import discord
 from discord.ext import commands
 
 from ..content import ANXIN_STORIES, COMMAND_TEXTS
-from ..triggers import Response
+from ..triggers import Response, normalize
 
 log = logging.getLogger(__name__)
 
@@ -31,9 +31,8 @@ class ConversationCog(commands.Cog):
             )
             for trigger in bot.triggers.all
         }
-        self._excel_cooldown = commands.CooldownMapping.from_cooldown(
-            1, default, commands.BucketType.user
-        )
+        self._excel_cooldowns: dict[str, commands.CooldownMapping] = {}
+        self._excel_cooldown_default = default
 
     # ------------------------------------------------------------- listener --
     @commands.Cog.listener()
@@ -59,7 +58,17 @@ class ConversationCog(commands.Cog):
         # Excel-derived asset commands: O(1) dict lookup, loaded once at boot.
         relative = self.bot.assets.file_for_command(content)
         if relative is not None:
-            if self._excel_cooldown.update_rate_limit(message) is not None:
+            key = normalize(content)
+            mapping = self._excel_cooldowns.get(key)
+            if mapping is None:
+                # Bounded cache: arbitrary user text must not grow memory forever.
+                if len(self._excel_cooldowns) > 512:
+                    self._excel_cooldowns.clear()
+                mapping = commands.CooldownMapping.from_cooldown(
+                    1, self._excel_cooldown_default, commands.BucketType.user
+                )
+                self._excel_cooldowns[key] = mapping
+            if mapping.update_rate_limit(message) is not None:
                 return
             self.bot.stats["excel_hits"] += 1
             await self._deliver(message, Response("file", relative))

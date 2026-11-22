@@ -1,13 +1,35 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-import discord 
+import asyncio
+from io import BytesIO
+from pathlib import Path
+
+import discord
 from discord.ext import commands
 from deep_translator import GoogleTranslator
 from PIL import Image, ImageFilter
-from io import BytesIO
 import requests
 import dmm
 import json
+
+
+async def _translate(translator, text):
+    """deep-translator is blocking — keep it off the event loop."""
+    return await asyncio.to_thread(translator.translate, str(text))
+
+
+def _credentials(bot):
+    """Prefer env-backed Config; keep the legacy file only as a migration path."""
+    config = getattr(bot, "config", None)
+    if config is not None:
+        return config.dmm_api_id, config.dmm_affiliate_id
+    path = Path(__file__).resolve().parent / "TOKEN.json"
+    try:
+        with path.open("r", encoding="utf-8") as handle:
+            data = json.load(handle)
+    except (OSError, ValueError):
+        return "", ""
+    return data.get("DMM_API_ID", ""), data.get("DMM_AFFILIATE_ID", "")
 
 class dmm_tracker(commands.Cog):
     def __init__(self,bot):
@@ -18,14 +40,13 @@ class dmm_tracker(commands.Cog):
         if '-' in arg:
             arg = arg.replace('-','00')
         
-        get_api = json.loads(open('zene/TOKEN.json').read())
-
-        api_id = get_api["DMM_API_ID"]
-        affiliate_id = get_api["DMM_AFFILIATE_ID"]
+        api_id, affiliate_id = _credentials(self.bot)
 
         api = dmm.API(api_id=api_id, affiliate_id=affiliate_id)
 
-        item_search = api.item_search(site="FANZA", service = 'digital', keyword=arg, output='json')
+        item_search = await asyncio.to_thread(
+            api.item_search, site="FANZA", service='digital', keyword=arg, output='json'
+        )
 
         data = json.dumps(item_search)
         collect_data = json.loads(data)
@@ -76,7 +97,7 @@ class dmm_tracker(commands.Cog):
                 color = discord.Colour.blurple(),
                 title = product_id.upper(),
                 #url = affiliate_url,
-                description = f'[**{code_translator.translate(product_title)}**]({affiliate_url})'
+                description = f'[**{await _translate(code_translator, product_title)}**]({affiliate_url})'
                 #description = ''.join(embed_description)
             )
 
@@ -90,18 +111,26 @@ class dmm_tracker(commands.Cog):
             await ctx.send(embed=code_embed)
             
         else:
-            response = requests.get(image_url)
-            img = Image.open(BytesIO(response.content))
-            blurImage = img.filter(ImageFilter.BoxBlur(10))
-            blurImage.save('zene/data/image/simBlurImage.jpg')
-            file = discord.File('zene/data/image/simBlurImage.jpg', filename="image.png")
+            def _blur_in_thread():
+                response = requests.get(image_url, timeout=10)
+                response.raise_for_status()
+                with Image.open(BytesIO(response.content)) as img:
+                    blurred = img.filter(ImageFilter.BoxBlur(10))
+                output = BytesIO()
+                blurred.save(output, format="JPEG")
+                output.seek(0)
+                return output
+
+            # In-memory output: no shared simBlurImage.jpg race condition.
+            output = await asyncio.to_thread(_blur_in_thread)
+            file = discord.File(output, filename="image.png")
             embed_Image = "attachment://image.png"
  
             code_embed = discord.Embed(
                 color = discord.Colour.blurple(),
                 title = product_id.upper(),
                 #url = affiliate_url,
-                description = f'[**{code_translator.translate(product_title)}**]({affiliate_url})'
+                description = f'[**{await _translate(code_translator, product_title)}**]({affiliate_url})'
                 #description = ''.join(embed_description)
             )
 
@@ -121,14 +150,13 @@ class dmm_tracker(commands.Cog):
         if '-' in arg:
             arg = arg.replace('-','00')
         
-        get_api = json.loads(open('zene/TOKEN.json').read())
-
-        api_id = get_api["DMM_API_ID"]
-        affiliate_id = get_api["DMM_AFFILIATE_ID"]
+        api_id, affiliate_id = _credentials(self.bot)
 
         api = dmm.API(api_id=api_id, affiliate_id=affiliate_id)
 
-        actress_search = api.actress_search(site="FANZA", keyword=arg, output='json')
+        actress_search = await asyncio.to_thread(
+            api.actress_search, site="FANZA", keyword=arg, output='json'
+        )
 
         data = json.dumps(actress_search)
         collect_data = json.loads(data)
@@ -156,14 +184,14 @@ class dmm_tracker(commands.Cog):
             color = discord.Colour.brand_green(),
             title = actress_name + f'【{actress_ruby}】',
             url = actress_digitalURL,
-            description='Đến từ ' + str(idol_translator.translate(str(birthplace)))
+            description='Đến từ ' + str(await _translate(idol_translator, birthplace))
         )
 
         idol_embed.set_thumbnail(url=imageURL)
         idol_embed.add_field(name = 'Số đo 3 vòng', value = f'{bust} {waist} {hip} **{bust_cup}**')
         idol_embed.add_field(name = 'Chiều cao', value = height)
         idol_embed.add_field(name = 'Ngày sinh', value = birthday)
-        idol_embed.add_field(name = 'Sở thích', value = idol_translator.translate(str(hobby)))
+        idol_embed.add_field(name = 'Sở thích', value = await _translate(idol_translator, hobby))
         await ctx.send(embed=idol_embed)
         pass
     

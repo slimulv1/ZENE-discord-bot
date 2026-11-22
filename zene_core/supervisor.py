@@ -38,7 +38,12 @@ class Supervisor:
 
     async def _supervise(self) -> None:
         failures = 0
+        first_boot = True
         while True:
+            if not first_boot:
+                # Count every respawn (crash or operator request), not just /restart.
+                self.state.restarts += 1
+            first_boot = False
             bot = self.factory(self.config, self.state)
             self._bot = bot
             try:
@@ -67,6 +72,8 @@ class Supervisor:
             except Exception as exc:  # noqa: BLE001 - supervisor boundary
                 failures += 1
                 log.error("bot crashed: %s: %s", type(exc).__name__, exc)
+            finally:
+                self._bot = None
 
             if self.state.shutdown_requested:
                 log.info("shutdown requested — kết thúc supervisor")
@@ -74,7 +81,6 @@ class Supervisor:
 
             if self.state.restart_requested:
                 self.state.restart_requested = False
-                self.state.restarts += 1
                 failures = 0
                 log.info("restart có chủ đích — khởi tạo lại bot trong cùng process")
                 continue
@@ -95,7 +101,7 @@ class Supervisor:
         """Called from a signal handler running inside the event loop."""
         self.state.shutdown_requested = True
         bot = self._bot
-        if bot is not None and not bot.is_closed():
+        if bot is not None and not getattr(bot, "_closing", False) and not bot.is_closed():
             asyncio.get_running_loop().create_task(bot.close())
 
     # --------------------------------------------------------------- health --
@@ -125,7 +131,15 @@ class Supervisor:
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter
     ) -> None:
         try:
-            await asyncio.wait_for(reader.readline(), timeout=2.0)
+            request_line = (
+                await asyncio.wait_for(reader.readline(), timeout=2.0)
+            ).decode("utf-8", "replace").strip()
+            if not request_line.upper().startswith("GET /health"):
+                writer.write(
+                    b"HTTP/1.1 404 Not Found\r\nContent-Length: 0\r\nConnection: close\r\n\r\n"
+                )
+                await writer.drain()
+                return
             bot = self._bot
             ready = bool(bot is not None and bot.is_ready())
             degraded = bool(

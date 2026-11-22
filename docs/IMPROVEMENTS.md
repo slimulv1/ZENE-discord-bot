@@ -72,9 +72,12 @@ flowchart TD
 2. **Fail-soft extension loading** (`bot.py:_load_extension`): core cog lỗi ⇒ log
    `ERROR`; legacy cog lỗi ⇒ `WARNING` + ghi vào `failed_extensions`; `/reload`
    cho phép sửa nóng. Bot vẫn READY.
-3. **Resilience** (`zene_core/resilience.py`): `RetryPolicy` (exponential + jitter),
-   `CircuitBreaker` CLOSED→OPEN→HALF_OPEN, `TokenBucket`, `with_timeout`. Không
-   có `time.sleep()` nào trong đường async.
+3. **Resilience** (`zene_core/resilience.py` + `zene_core/net.py`): `RetryPolicy`
+   (exponential + jitter), `CircuitBreaker` CLOSED→OPEN→HALF_OPEN, `TokenBucket`,
+   `with_timeout`. `net.fetch_json()`/`fetch_text()` là cầu nối đưa mọi HTTP
+   blocking của legacy cog qua `asyncio.to_thread()` + breaker, nên cơ chế này
+   **được dùng thật** chứ không phải code chết. Không có `time.sleep()` nào
+   trong đường async.
 4. **Asset registry** (`zene_core/assets.py`): nạp Excel 1 lần, `path_for()` chặn
    path traversal, giới hạn kích thước 8MB, gửi bằng `BytesIO` ⇒ hết race
    condition và rò rỏ file descriptor.
@@ -108,7 +111,7 @@ python -m venv .venv
 pip install -r requirements.txt
 
 # 2) cấu hình
-copy .env.example .env
+copy config.example.txt .env
 # sửa DISCORD_TOKEN trong .env
 
 # 3) chạy bản mới
@@ -147,9 +150,14 @@ Lệnh operator (prefix `z/`): `health`, `stats`, `extensions`, `reload <module>
   thật. Cần chạy lệnh ở mục 3 trên máy có Python 3.10+ (dataclass `slots=True`) trước khi đưa production.
 - Cố tình **không** thêm DB, queue, slash command bắt buộc, hay viết lại nội dung
   meme — giữ tương thích ngược và giới hạn diện tích cần test.
-- Hạn chế còn lại của legacy cog: `requests` vẫn là blocking I/O; đã thêm
-  `timeout=10` nhưng về lâu dài nên chuyển sang `aiohttp` hoặc `asyncio.to_thread`
-  (Phase 2). `dmm_tracker` vẫn đọc token từ file — cần migrate sang Config.
+- Các legacy cog đã được chuyển sang non-blocking: `hentai_interact` dùng
+  `zene_core.net.fetch_json()` (to_thread + breaker + timeout); `wiki`,
+  `google_trans`, `hannom`, `dmm_tracker` dùng `asyncio.to_thread()` cho các
+  gọi blocking. `dmm_tracker` ưu tiên credentials từ `Config` (env `DMM_API_ID`,
+  `DMM_AFFILIATE_ID`), chỉ fallback sang file khi chạy bản legacy.
+- Hạn chế còn lại: vẫn dùng thư viện `requests` ở worker thread thay vì
+  `aiohttp` (Phase 2). Trên Windows native, `loop.add_signal_handler` không dùng
+  được → dừng graceful bằng Ctrl+C; trên Docker/Linux SIGTERM hoạt động bình thường.
 
 ## 6. Ma trận quyết định thiết kế (ghi lại để tránh "over-engineer sai chỗ")
 
