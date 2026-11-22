@@ -4,7 +4,14 @@ from __future__ import annotations
 import discord
 from discord.ext import commands
 
-from ..avwiki import dmm_image, search_code, search_idol
+from ..avwiki import (
+    bilingual,
+    clean_title,
+    dmm_image,
+    search_code,
+    search_idol,
+    to_vietnamese,
+)
 
 NOT_NSFW = "Lệnh này chỉ dùng được trong kênh NSFW."
 
@@ -27,32 +34,45 @@ class AvWikiCog(commands.Cog):
         if not results:
             await self.bot.safe_send(ctx, f"Không tìm thấy mã `{arg}` trên av-wiki.")
             return
+
         item = results[0]
+        jp_title = clean_title(item["title"])
+        vi_title = await to_vietnamese(jp_title)
+
         embed = discord.Embed(
-            title=item["code"] or arg.upper(),
+            title=f"🎬 Mã phim: {item['code'] or arg.upper()}",
             url=item["link"] or None,
-            description=_clip(item["title"]) or None,
+            description=_clip(bilingual(jp_title, vi_title), 700) or None,
             color=discord.Colour.blurple(),
         )
-        for name, key in (
-            ("Diễn viên", "actress"),
-            ("Hãng", "maker"),
-            ("Nhãn", "label"),
-            ("Series", "series"),
-            ("FANZA", "fanza"),
-            ("Ngày phát hành", "date"),
-        ):
-            if item.get(key):
-                embed.add_field(name=name, value=_clip(item[key], 200), inline=True)
+
+        actress_jp = item["actress"]
+        actress_vi = await to_vietnamese(actress_jp) if actress_jp else ""
+        fields = [
+            ("👩 Diễn viên", bilingual(actress_jp, actress_vi)),
+            ("🏢 Hãng sản xuất", item["maker"]),
+            ("🏷️ Nhãn", item["label"]),
+            ("📼 Series", item["series"]),
+            ("🔢 FANZA", item["fanza"]),
+            ("📅 Ngày phát hành", item["date"]),
+        ]
+        for name, value in fields:
+            if value:
+                embed.add_field(name=name, value=_clip(str(value), 200), inline=True)
+
         image = item["image"]
+        source_note = "Nguồn: av-wiki.net"
         if not image.startswith(("http://", "https://")):
             image = await dmm_image(
                 item["code"] or arg,
                 self.bot.config.dmm_api_id,
                 self.bot.config.dmm_affiliate_id,
             )
+            if image:
+                source_note += " • Ảnh: FANZA"
         if image.startswith(("http://", "https://")):
             embed.set_image(url=image)
+        embed.set_footer(text=source_note)
         await self.bot.safe_send(ctx, embed=embed)
 
     @commands.command(name="idol")
@@ -65,20 +85,29 @@ class AvWikiCog(commands.Cog):
         if result is None:
             await self.bot.safe_send(ctx, f"Không tìm thấy diễn viên `{arg}` trên av-wiki.")
             return
+
+        name_jp = result["name"]
+        name_vi = await to_vietnamese(name_jp)
         embed = discord.Embed(
-            title=result["name"],
+            title=f"🌟 {name_vi or name_jp}",
             url=result["link"] or None,
-            description=f"Tổng {result['count']} tác phẩm được ghi nhận.",
+            description=(
+                f"{bilingual(name_jp, name_vi)}\n\n"
+                f"📚 Tổng **{result['count']}** tác phẩm được ghi nhận."
+            ),
             color=discord.Colour.blurple(),
         )
-        for work in result["works"]:
+        for work in result["works"][:4]:
+            jp = clean_title(work["title"])
+            vi = await to_vietnamese(jp)
             embed.add_field(
-                name=work["code"] or "—",
-                value=_clip(work["title"], 180),
+                name=f"🎞️ {work['code'] or '—'}",
+                value=_clip(bilingual(jp, vi), 240),
                 inline=False,
             )
         if not result["works"]:
             embed.add_field(name="(trống)", value="Không lấy được danh sách tác phẩm.")
+        embed.set_footer(text="Nguồn: av-wiki.net")
         await self.bot.safe_send(ctx, embed=embed)
 
 

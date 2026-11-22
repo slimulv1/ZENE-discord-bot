@@ -72,6 +72,35 @@ async def dmm_image(code: str, api_id: str, affiliate_id: str) -> str:
     )
 
 
+async def to_vietnamese(text: str) -> str:
+    """Translate Japanese -> Vietnamese; keep the original if the API is down."""
+    if not text:
+        return ""
+
+    def work() -> str:
+        from deep_translator import GoogleTranslator
+
+        return GoogleTranslator(source="ja", target="vi").translate(text)
+
+    async def call() -> str:
+        return await asyncio.to_thread(work)
+
+    return await call_with_breaker(get_breaker("ja-vi"), call, fallback=text)
+
+
+def clean_title(text: str) -> str:
+    """Drop the site's boilerplate tail from post titles."""
+    return re.sub(r"\s*に出てるAV女優名まとめ\s*$", "", text or "").strip()
+
+
+def bilingual(japanese: str, vietnamese: str) -> str:
+    if not japanese:
+        return vietnamese
+    if not vietnamese or vietnamese == japanese:
+        return japanese
+    return f"🇻🇳 {vietnamese}\n🇯🇵 {japanese}"
+
+
 def normalize_code(value: str) -> list[str]:
     value = value.strip()
     candidates = [value]
