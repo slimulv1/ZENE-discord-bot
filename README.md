@@ -1,6 +1,21 @@
-# ZENE Bot — hướng dẫn sử dụng
+<p align="center">
+  <img src="docs/logo.png" alt="ZENE Bot logo" width="150">
+</p>
 
-Bot này làm mấy việc sau:
+<h1 align="center">🤖 ZENE Discord Bot</h1>
+
+<p align="center"><b>Meme cho vui · tiện ích cho nhanh · chạy suốt ngày đêm</b></p>
+<p align="center"><sub>Windows · Linux · macOS · Raspberry Pi 4 / 5 · Python 3.10+</sub></p>
+
+<p align="center">
+  🐾 Meme &nbsp;•&nbsp; 🎬 Ảnh/video &nbsp;•&nbsp; 📅 Âm lịch &nbsp;•&nbsp; ⛽ Giá xăng &nbsp;•&nbsp; 🩺 Tự hồi phục &nbsp;•&nbsp; 🍬 Dễ thêm meme
+</p>
+
+> **💡 Mới dùng?** Đọc mục 1 (lệnh) → mục 3 (tạo bot) → mục 1 (cài đặt). Có lỗi thì nhảy tới mục 7.
+
+---
+
+## 🎯 Bot này làm mấy việc sau:
 
 - Gửi meme ảnh/video khi bạn gõ đúng cụm, ví dụ gõ `siuu` là hiện video.
 - Xem avatar, ghép avatar vào ảnh hài.
@@ -13,7 +28,7 @@ Cần **Python 3.10 trở lên** (cài 3.11 là đẹp).
 
 ---
 
-## 1. Chạy nhanh nếu bạn đã có bot trên Discord
+## 🚀 1. Chạy nhanh nếu bạn đã có bot trên Discord
 
 Giả sử bạn đã tạo bot và có token (nếu chưa, xem mục 3).
 
@@ -46,15 +61,18 @@ python run.py
 Trong file `.env`, bạn **phải** điền `DISCORD_TOKEN=` bằng token bot của bạn.
 Nhớ điền luôn `ZENE_OWNER_IDS=` bằng ID Discord của bạn để dùng được lệnh quản lý.
 
-> Nếu Windows chặn lệnh kích hoạt `.venv`, chạy thêm:
+> **⚠️ Nếu Windows chặn lệnh kích hoạt `.venv`**, chạy thêm:
 > `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
 
-Muốn bot tự chạy lại khi tắt terminal? Xem phần Raspberry Pi ở mục 4 — cách
-systemd ở đó dùng được cho cả máy Linux x86.
+> **🔒 Token là bí mật.** Đây là nơi duy nhất bạn dán token. Đừng commit file `.env`,
+> đừng gửi token cho ai, và nếu lỡ lộ thì Reset Token trong Discord ngay.
+
+Muốn bot tự chạy lại khi tắt terminal? Xem mục 🍓 4 — cách systemd ở đó dùng được
+cho cả máy Linux x86.
 
 ---
 
-## 2. Bot có những lệnh gì?
+## 📜 2. Bot có những lệnh gì?
 
 Có hai cách gọi lệnh:
 
@@ -63,7 +81,7 @@ Có hai cách gọi lệnh:
 
 Một số lệnh dùng được **cả hai cách** — mình ghi là "cả hai" ở dưới.
 
-### Lệnh trên thanh `/`
+### ⌨️ Lệnh trên thanh `/`
 
 | Gõ | Bot làm gì |
 |---|---|
@@ -79,7 +97,7 @@ Một số lệnh dùng được **cả hai cách** — mình ghi là "cả hai"
 `/code` và `/idol` **chỉ dùng trong kênh NSFW** (kênh bạn bật chế độ NSFW trong
 Discord). Nếu thử ở kênh thường, bot sẽ nhắc bạn đổi kênh.
 
-### Lệnh tiện ích
+### 🧰 Lệnh tiện ích
 
 | Gõ | Bot làm gì |
 |---|---|
@@ -92,7 +110,7 @@ Discord). Nếu thử ở kênh thường, bot sẽ nhắc bạn đổi kênh.
 | `z/vanmau <chủ đề>` | Các đoạn "văn mẫu" hài hước |
 | `z/anxin`, `z/xinloi`, `z/sapnupuas`, `z/samhoi`, `z/hotro` | Các câu text meme có sẵn |
 
-### Lệnh ảnh và video
+### 🎬 Lệnh ảnh và video
 
 | Gõ | Bot làm gì |
 |---|---|
@@ -101,7 +119,7 @@ Discord). Nếu thử ở kênh thường, bot sẽ nhắc bạn đổi kênh.
 | `z/wake` | Gửi video wake |
 | `z/waifu`, `z/mlem`, `z/slap` | Ảnh từ các API bên ngoài |
 
-### Lệnh NSFW
+### 🔞 Lệnh NSFW
 
 Chỉ dùng trong kênh đã bật NSFW:
 
@@ -111,7 +129,7 @@ Chỉ dùng trong kênh đã bật NSFW:
 | `z/hen`, `z/hentai`, `z/hentrap`, `z/henneko`, `z/henbj` | Ảnh NSFW, tối đa 10 ảnh mỗi lần |
 | `z/nhentai <id>`, `z/search <từ khóa>` | Tìm doujin theo mã hoặc từ khóa |
 
-### Lệnh quản lý
+### 🛠️ Lệnh quản lý
 
 | Gõ | Ai được dùng | Bot làm gì |
 |---|---|---|
@@ -124,7 +142,7 @@ Chỉ dùng trong kênh đã bật NSFW:
 
 "Chủ bot" là Discord ID bạn điền vào `ZENE_OWNER_IDS`.
 
-### Không cần gõ lệnh vẫn được
+### 💬 Không cần gõ lệnh vẫn được
 
 Bạn chỉ cần gõ đúng cụm trong chat, bot tự trả lời. Ví dụ:
 
@@ -135,11 +153,13 @@ Bạn chỉ cần gõ đúng cụm trong chat, bot tự trả lời. Ví dụ:
 - Gõ `quan trọng`, `em à`, `trời mưa` → bot gửi video tương ứng.
 
 Toàn bộ nội dung này nằm trong một file duy nhất: `zene/data/memes.json`.
-Xem mục 8 để biết cách tự thêm meme.
+
+> **🍬 Muốn thêm meme của riêng bạn?** Nhảy tới mục 8. Sửa JSON, rồi nhớ restart
+> **cả process** — lệnh `z/restart` là chưa đủ.
 
 ---
 
-## 3. Tạo bot trên Discord (nếu chưa có)
+## 🆕 3. Tạo bot trên Discord (nếu chưa có)
 
 1. Vào <https://discord.com/developers/applications> → bấm **New Application**, đặt tên.
 2. Vào tab **Bot** → bấm **Reset Token** → copy token. Token chỉ hiện lúc này,
@@ -160,11 +180,11 @@ rồi bật lại. Bot đã tự đồng bộ lệnh lúc khởi động.
 
 ---
 
-## 4. Cài trên Raspberry Pi 4 / 5
+## 🍓 4. Cài trên Raspberry Pi 4 / 5
 
 Dùng **Raspberry Pi OS 64-bit (Bookworm)**. Pi 4 nhớ bản RAM 2GB trở lên; Pi 5 thoải mái.
 
-### Cài Python và công cụ
+### 🐍 Cài Python và công cụ
 
 ```bash
 sudo apt update && sudo apt full-upgrade -y
@@ -175,7 +195,7 @@ python3 --version
 Nếu muốn điều khiển từ máy khác, bật SSH:
 `sudo raspi-config` → *Interface Options → SSH*.
 
-### Cài bot
+### ⬇️ Cài bot
 
 ```bash
 cd ~
@@ -193,7 +213,7 @@ python run.py
 Cái `--only-binary=:all:` giúp không phải tự biên dịch Pillow/numpy trên ARM
 (rất lâu). Nếu Pi vẫn hơi ì, thêm `ZENE_LOG_LEVEL=WARNING` vào file `.env`.
 
-### Cho bot tự chạy khi khởi động
+### ♻️ Cho bot tự chạy khi khởi động
 
 Tạo file `/etc/systemd/system/zene-bot.service`:
 
@@ -230,7 +250,7 @@ journalctl -u zene-bot -f
 Muốn tạm dừng: `sudo systemctl stop zene-bot`. Muốn khởi động lại:
 `sudo systemctl restart zene-bot`.
 
-### Cách Docker (dùng được cả x86 lẫn ARM)
+### 🐳 Cách Docker (dùng được cả x86 lẫn ARM)
 
 ```bash
 cp config.example.txt .env
@@ -242,7 +262,7 @@ Bot sẽ tự restart nếu chết, và có thể kiểm tra tại `http://local
 
 ---
 
-## 5. File `.env` là gì?
+## ⚙️ 5. File `.env` là gì?
 
 Đây là nơi bạn cất token và các cài đặt. Tạo bằng cách copy `config.example.txt`
 đổi tên thành `.env`. **Không commit file này lên GitHub.**
@@ -275,7 +295,7 @@ Xem `config.example.txt` để có file mẫu đầy đủ.
 
 ---
 
-## 6. Kiểm tra bot có khỏe không
+## 🩺 6. Kiểm tra bot có khỏe không
 
 Mở trình duyệt vào:
 
@@ -308,7 +328,7 @@ Log nằm ở `logs/zene.log`. Bot tự xóa log cũ và tự che token khi ghi 
 
 ---
 
-## 7. Khi có lỗi
+## 🆘 7. Khi có lỗi
 
 | Bạn thấy | Hiểu là | Làm gì |
 |---|---|---|
@@ -324,7 +344,7 @@ Log nằm ở `logs/zene.log`. Bot tự xóa log cũ và tự che token khi ghi 
 
 ---
 
-## 8. Tự thêm meme
+## 🍬 8. Tự thêm meme
 
 Xem hướng dẫn đầy đủ tại **[docs/ADD_MEMES.md](docs/ADD_MEMES.md)**.
 
@@ -335,7 +355,7 @@ Lệnh `z/restart` chỉ tạo lại bot trong cùng process nên **chưa đủ*
 
 ---
 
-## 9. Cho người muốn sửa code
+## 🧑‍💻 9. Cho người muốn sửa code
 
 ```bash
 pip install ruff
@@ -362,3 +382,11 @@ tests/                  unit test
 
 > `main.py` và `zene/communicate.py` là bản legacy, chỉ giữ để rollback.
 > Chạy production luôn dùng `run.py`.
+
+---
+
+<p align="center">
+  <img src="docs/logo.png" alt="ZENE Bot" width="64">
+  <br>
+  <sub>Làm bằng 🐾, chạy bằng ☕, giữ bằng 🩺 tự hồi phục.</sub>
+</p>
