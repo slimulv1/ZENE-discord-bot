@@ -1,179 +1,180 @@
-# ZENE Discord Bot
+# ZENE Bot — hướng dẫn sử dụng
 
-Bot Discord đa năng: meme, tiện ích, tra cứu AV info, giá xăng, âm lịch… Chạy được
-trên **máy x86 (Windows/Linux/macOS)** và **Raspberry Pi 4 / 5**.
+Bot này làm mấy việc sau:
 
-- Entry point khuyến nghị: `python run.py`
-- Entry point legacy (để rollback): `python main.py`
-- Yêu cầu: **Python 3.10+** (khuyến nghị 3.11), discord.py 2.x.
+- Gửi meme ảnh/video khi bạn gõ đúng cụm, ví dụ gõ `siuu` là hiện video.
+- Xem avatar, ghép avatar vào ảnh hài.
+- Tra cứu mã phim / tên diễn viên (chỉ trong kênh NSFW).
+- Xem giá xăng, âm lịch, dịch tiếng, Wikipedia.
+- Tự chạy suốt ngày đêm, tự khởi động lại khi bị lỗi.
 
----
-
-## 1. Chức năng
-
-Bot có **40 lệnh prefix** (gõ `z/`, `Z/`, `h/` hoặc `H/` trước tên lệnh) và
-**6 lệnh slash** trên Discord UI (`/...`). Một số lệnh là *hybrid* (dùng được cả hai).
-
-### 1.1 Slash command (gõ `/` trên Discord)
-
-| Lệnh | Mô tả | Ghi chú |
-|---|---|---|
-| `/amlich` | Âm lịch hôm nay: can chi, tuổi xung, giờ Hoàng Đạo | hybrid |
-| `/avt` | Xem ảnh đại diện (embed ảnh 512px + link) | hybrid |
-| `/cmd` | Danh sách lệnh asset, có nút phân trang | hybrid |
-| `/code <arg>` | Tra cứu phim theo mã qua av-wiki.net | hybrid, **chỉ kênh NSFW** |
-| `/giaxanghomnay` | Giá xăng dầu Petrolimex 2 khu vực | hybrid |
-| `/haha` | Ghép avatar vào ảnh "3 chó tuyết" | hybrid |
-| `/idol <arg>` | Tra cứu diễn viên + tối đa 4 tác phẩm | hybrid, **chỉ kênh NSFW** |
-
-### 1.2 Lệnh tiện ích / thông tin
-
-| Lệnh | Chức năng |
-|---|---|
-| `z/info @user` | Thông tin ngẫu nhiên về một thành viên |
-| `z/trans <text>` | Dịch sang tiếng Việt |
-| `z/han <text>` | Hán → Việt (hvdic.thivien.net) |
-| `z/wiki <từ khóa>` | Tóm tắt Wikipedia tiếng Việt |
-| `z/cmd` | Liệt kê các lệnh asset nạp từ `command_link.xlsx` |
-| `z/camon @user`, `z/non @user` | Câu chúc/jokes có tag thành viên |
-| `z/vanmau <chủ đề>` | Các đoạn text "văn mẫu" |
-| `z/anxin`, `z/xinloi`, `z/sapnupuas`, `z/samhoi`, `z/hotro` | Text meme có sẵn |
-
-### 1.3 Lệnh ảnh / video
-
-| Lệnh | Chức năng |
-|---|---|
-| `z/avt`, `z/haha`, `z/tv` | Avatar / ghép avatar (xem mục 1.1) |
-| `z/auzam`, `z/nohorny`, `z/bonk` | Ảnh ngẫu nhiên từ thư mục tương ứng |
-| `z/wake` | Video wake |
-| `z/waifu`, `z/mlem`, `z/slap` | Ảnh SFW/động tác từ API ngoài |
-
-### 1.4 Lệnh NSFW (bắt buộc kênh đã đánh dấu NSFW)
-
-| Lệnh | Chức năng |
-|---|---|
-| `z/code`, `z/idol` | av-wiki.net, embed song ngữ JP/VN, ảnh fallback từ FANZA |
-| `z/hen`, `z/hentai`, `z/hentrap`, `z/henneko`, `z/henbj` | API ảnh NSFW (giới hạn ≤ 10 ảnh/lần) |
-| `z/nhentai <id>`, `z/search <từ khóa>` | Tra cứu/tìm doujin |
-
-Nếu dùng ngoài kênh NSFW, bot trả lời `Qua kênh NSFW mà xài` / `Lệnh này chỉ dùng được trong kênh NSFW.`
-
-### 1.5 Lệnh vận hành
-
-| Lệnh | Quyền | Chức năng |
-|---|---|---|
-| `z/health` | mọi người | uptime, ping, số guild, extension lỗi |
-| `z/stats` | mọi người | đếm trigger hit, asset miss… |
-| `z/extensions` | mọi người | cog đã load / failed |
-| `z/reload <module>` | owner | reload cog nóng |
-| `z/restart` | owner | đóng bot rồi supervisor respawn |
-| `z/shutdown` | owner | tắt an toàn |
-
-### 1.6 Phản hồi tự động (`on_message`)
-
-Ngoài lệnh, bot còn phản hồi ~18 cụm từ text có sẵn (ví dụ `tôi bị xúc phạm`,
-`là...` → Folontilô, `siuu`, `hảo hán`, `xaolon`, `300 bài code thiếu nhi`) và
-~40 mapping "lệnh → file ảnh/video" từ `zene/data/command_data/command_link.xlsx`.
-Toàn bộ nội dung meme nằm trong **`zene/data/memes.json`** (nguồn dữ liệu duy
-nhất); file Excel `command_link.xlsx` và `extra_commands.json` chỉ giữ lại làm
-fallback tương thích. Dữ liệu được nạp **một lần lúc boot**, có cooldown theo
-từng người, bỏ qua tin nhắn từ bot khác, chặn path traversal. Muốn thêm meme:
-sửa JSON, không cần đụng code hay mở LibreOffice.
-
-### 1.7 Đặc tính vận hành 24/7
-
-- **Supervisor**: `login()` có timeout, `connect()` chạy dài; mỗi lần thoất bất
-  thường đều tính là crash và restart với exponential backoff + jitter.
-- **Fail-soft**: cog lỗi không làm chết bot; `/extensions` liệt kê, `z/reload` sửa nóng.
-- **Resilience**: circuit breaker + retry + timeout cho mọi HTTP/SDK ngoài.
-- **aiohttp session dùng chung** + **cache TTL** (avwiki 5p, dịch 24h, giá xăng 30p).
-- **Health endpoint** `GET /health` trả JSON, `503` khi degraded.
-- **Bản tin hàng ngày** (tuỳ chọn): gửi âm lịch + giá xăng vào kênh chỉ định,
-  giờ được cấu hình theo timezone (`ZENE_DIGEST_CHANNEL_ID`).
-- **Log JSON xoay vòng** tại `logs/zene.log`, tự redact token.
+Chạy tốt trên **Windows, Linux, macOS** và **Raspberry Pi 4 / 5**.
+Cần **Python 3.10 trở lên** (cài 3.11 là đẹp).
 
 ---
 
-## 2. Tạo bot trên Discord Developer Portal
+## 1. Chạy nhanh nếu bạn đã có bot trên Discord
 
-1. Vào <https://discord.com/developers/applications> → **New Application** → đặt tên.
-2. Tab **Bot** → **Reset Token** → copy token (chỉ lấy lúc này).
-3. Bật **Message Content Intent** (bắt buộc để lệnh prefix hoạt động).
-   Chỉ bật **Server Members Intent** nếu bạn đặt `ZENE_MEMBERS_INTENT=true`.
-4. Tab **OAuth2 → URL Generator**:
-   - Scopes: `bot` + `applications.commands` (cái sau bắt buộc để có slash command).
-   - Bot Permissions: *Send Messages*, *Embed Links*, *Attach Files*,
-     *Read Message History*, *Use Slash Commands*.
-5. Mở URL sinh ra → thêm bot vào server.
-6. Đánh dấu NSFW cho kênh dùng `code`/`idol`/`hen*`/`nhentai`:
-   **Channel Settings → NSFW Toggle**.
-7. Đặt owner: lấy User ID (bật Developer Mode, right-click tên → Copy User ID) rồi
-   điền vào `ZENE_OWNER_IDS` trong `.env`.
+Giả sử bạn đã tạo bot và có token (nếu chưa, xem mục 3).
 
-> Bot cần vài phút để Discord cache slash command. Nếu chưa hiện, restart bot hoặc
-> đợi; `tree.sync()` đã chạy lúc boot.
-
----
-
-## 3. Cài đặt trên máy x86 (Windows / Linux / macOS)
-
-### Windows (PowerShell)
+**Windows (PowerShell):**
 
 ```powershell
 git clone https://github.com/slimulv1/ZENE-discord-bot.git
 cd ZENE-discord-bot
 py -3.11 -m venv .venv
 .\.venv\Scripts\Activate.ps1
-python -m pip install --upgrade pip
 python -m pip install -r requirements.txt
 copy config.example.txt .env
-notepad .env          # điền DISCORD_TOKEN, ZENE_OWNER_IDS
+notepad .env
 python run.py
 ```
 
-Nếu chính sách thực thi chặn Activate.ps1:
-`Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`.
-
-### Linux / macOS
+**Linux / macOS:**
 
 ```bash
 git clone https://github.com/slimulv1/ZENE-discord-bot.git
 cd ZENE-discord-bot
 python3.11 -m venv .venv
 source .venv/bin/activate
-pip install --upgrade pip
 pip install -r requirements.txt
 cp config.example.txt .env
 nano .env
 python run.py
 ```
 
-### Kiểm tra sau khi cài
+Trong file `.env`, bạn **phải** điền `DISCORD_TOKEN=` bằng token bot của bạn.
+Nhớ điền luôn `ZENE_OWNER_IDS=` bằng ID Discord của bạn để dùng được lệnh quản lý.
 
-```bash
-python -m unittest discover -s tests -v   # 9 test
-python -m ruff check .                    # cần: pip install ruff
-curl http://127.0.0.1:8080/health
-```
+> Nếu Windows chặn lệnh kích hoạt `.venv`, chạy thêm:
+> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
+
+Muốn bot tự chạy lại khi tắt terminal? Xem phần Raspberry Pi ở mục 4 — cách
+systemd ở đó dùng được cho cả máy Linux x86.
 
 ---
 
-## 4. Cài đặt trên Raspberry Pi 4 / 5
+## 2. Bot có những lệnh gì?
 
-Khuyến nghị **Raspberry Pi OS 64-bit (Bookworm)**. Pi 4 (≥2GB RAM) và Pi 5 đều chạy tốt.
+Có hai cách gọi lệnh:
 
-### 4.1 Chuẩn bị hệ thống
+- Gõ `/` rồi chọn tên lệnh, ví dụ `/amlich`. Gọi là **lệnh slash**.
+- Gõ `z/` rồi tên lệnh, ví dụ `z/health`. Gọi là **lệnh prefix** (`z/` là "câu bắt đầu lệnh").
+
+Một số lệnh dùng được **cả hai cách** — mình ghi là "cả hai" ở dưới.
+
+### Lệnh trên thanh `/`
+
+| Gõ | Bot làm gì |
+|---|---|
+| `/amlich` | Cho biết âm lịch hôm nay, tuổi xung, giờ tốt |
+| `/avt` | Hiện ảnh đại diện của bạn (hoặc người bạn tag) |
+| `/cmd` | Liệt kê các cụm từ meme, có nút bấm sang trang |
+| `/code <mã phim>` | Tra cứu phim theo mã |
+| `/giaxanghomnay` | Giá xăng hôm nay |
+| `/haha` | Ghép avatar của bạn vào ảnh "3 chó tuyết" |
+| `/idol <tên diễn viên>` | Xem thông tin diễn viên và vài tác phẩm |
+
+`/code` và `/idol` **chỉ dùng trong kênh NSFW** (kênh bạn bật chế độ NSFW trong
+Discord). Nếu thử ở kênh thường, bot sẽ nhắc bạn đổi kênh.
+
+### Lệnh tiện ích
+
+| Gõ | Bot làm gì |
+|---|---|
+| `z/info @ai_đó` | Đưa thông tin ngẫu nhiên, kiểu đùa vui |
+| `z/trans <câu>` | Dịch câu đó sang tiếng Việt |
+| `z/han <câu Hán>` | Đọc Hán Việt |
+| `z/wiki <từ>` | Tóm tắt Wikipedia tiếng Việt |
+| `z/cmd` | Xem danh sách cụm từ meme (giống `/cmd`) |
+| `z/camon @ai`, `z/non @ai` | Câu cảm ơn / đùa có tag người đó |
+| `z/vanmau <chủ đề>` | Các đoạn "văn mẫu" hài hước |
+| `z/anxin`, `z/xinloi`, `z/sapnupuas`, `z/samhoi`, `z/hotro` | Các câu text meme có sẵn |
+
+### Lệnh ảnh và video
+
+| Gõ | Bot làm gì |
+|---|---|
+| `z/avt`, `z/haha`, `z/tv` | Avatar / ghép avatar vào ảnh (xem ở trên) |
+| `z/auzam`, `z/nohorny`, `z/bonk` | Gửi ngẫu nhiên một ảnh trong thư mục đó |
+| `z/wake` | Gửi video wake |
+| `z/waifu`, `z/mlem`, `z/slap` | Ảnh từ các API bên ngoài |
+
+### Lệnh NSFW
+
+Chỉ dùng trong kênh đã bật NSFW:
+
+| Gõ | Bot làm gì |
+|---|---|
+| `z/code`, `z/idol` | Giống `/code`, `/idol` ở trên |
+| `z/hen`, `z/hentai`, `z/hentrap`, `z/henneko`, `z/henbj` | Ảnh NSFW, tối đa 10 ảnh mỗi lần |
+| `z/nhentai <id>`, `z/search <từ khóa>` | Tìm doujin theo mã hoặc từ khóa |
+
+### Lệnh quản lý
+
+| Gõ | Ai được dùng | Bot làm gì |
+|---|---|---|
+| `z/health` | Ai cũng được | Báo bot chạy ổn không, ping bao nhiêu |
+| `z/stats` | Ai cũng được | Đếm số lần meme được gọi |
+| `z/extensions` | Ai cũng được | Xem phần nào đang chạy / bị lỗi |
+| `z/reload <tên>` | Chủ bot | Nạp lại một phần đang lỗi |
+| `z/restart` | Chủ bot | Khởi động lại bot |
+| `z/shutdown` | Chủ bot | Tắt bot an toàn |
+
+"Chủ bot" là Discord ID bạn điền vào `ZENE_OWNER_IDS`.
+
+### Không cần gõ lệnh vẫn được
+
+Bạn chỉ cần gõ đúng cụm trong chat, bot tự trả lời. Ví dụ:
+
+- Gõ `tôi bị xúc phạm` → bot trả một đoạn text dài.
+- Gõ `là...` → bot nói "...là Folontilô!".
+- Gõ `siuu` → bot gửi video.
+- Gõ `hảo hán`, `xaolon` → bot gửi ảnh ngẫu nhiên.
+- Gõ `quan trọng`, `em à`, `trời mưa` → bot gửi video tương ứng.
+
+Toàn bộ nội dung này nằm trong một file duy nhất: `zene/data/memes.json`.
+Xem mục 8 để biết cách tự thêm meme.
+
+---
+
+## 3. Tạo bot trên Discord (nếu chưa có)
+
+1. Vào <https://discord.com/developers/applications> → bấm **New Application**, đặt tên.
+2. Vào tab **Bot** → bấm **Reset Token** → copy token. Token chỉ hiện lúc này,
+   dán ngay vào file `.env` nhé.
+3. Vẫn ở tab Bot, bật **Message Content Intent**. Nếu không bật, bot sẽ không đọc
+   được lệnh `z/...`.
+4. Vào **OAuth2 → URL Generator**:
+   - Tick ô `bot` và `applications.commands` (ô thứ hai để có lệnh `/`).
+   - Trong phần Bot Permissions, tick: *Send Messages*, *Embed Links*,
+     *Attach Files*, *Read Message History*, *Use Slash Commands*.
+5. Copy cái link hiện ra, mở trình duyệt, chọn server của bạn → **Add Bot**.
+6. Vào settings kênh định dùng `code`/`idol`/`hen...` → bật **NSFW**.
+7. Lấy ID của bạn: bật **Developer Mode** trong Discord, chuột phải vào tên bạn
+   → **Copy User ID**, rồi dán vào `ZENE_OWNER_IDS` trong `.env`.
+
+Lệnh `/` đôi khi không hiện ngay sau khi thêm bot. Cứ đợi vài phút, hoặc tắt bot
+rồi bật lại. Bot đã tự đồng bộ lệnh lúc khởi động.
+
+---
+
+## 4. Cài trên Raspberry Pi 4 / 5
+
+Dùng **Raspberry Pi OS 64-bit (Bookworm)**. Pi 4 nhớ bản RAM 2GB trở lên; Pi 5 thoải mái.
+
+### Cài Python và công cụ
 
 ```bash
 sudo apt update && sudo apt full-upgrade -y
 sudo apt install -y python3 python3-venv python3-pip git curl
-# Đảm bảo Python >= 3.10
 python3 --version
 ```
 
-Bật SSH nếu quản lý từ xa: `sudo raspi-config` → *Interface Options → SSH*.
+Nếu muốn điều khiển từ máy khác, bật SSH:
+`sudo raspi-config` → *Interface Options → SSH*.
 
-### 4.2 Cài bot
+### Cài bot
 
 ```bash
 cd ~
@@ -184,16 +185,16 @@ source .venv/bin/activate
 pip install --upgrade pip
 pip install --only-binary=:all: -r requirements.txt
 cp config.example.txt .env
-nano .env     # điền DISCORD_TOKEN + ZENE_OWNER_IDS
+nano .env
 python run.py
 ```
 
-`--only-binary=:all:` tránh build numpy/Pillow từ source trên ARM (rất chậm).
-Nếu còn sluggish, đặt thêm `ZENE_LOG_LEVEL=WARNING` trong `.env`.
+Cái `--only-binary=:all:` giúp không phải tự biên dịch Pillow/numpy trên ARM
+(rất lâu). Nếu Pi vẫn hơi ì, thêm `ZENE_LOG_LEVEL=WARNING` vào file `.env`.
 
-### 4.3 Chạy như systemd service (tự khởi động khi reboot)
+### Cho bot tự chạy khi khởi động
 
-Tạo `/etc/systemd/system/zene-bot.service`:
+Tạo file `/etc/systemd/system/zene-bot.service`:
 
 ```ini
 [Unit]
@@ -216,6 +217,8 @@ TimeoutStopSec=30
 WantedBy=multi-user.target
 ```
 
+Rồi chạy:
+
 ```bash
 sudo systemctl daemon-reload
 sudo systemctl enable --now zene-bot
@@ -223,91 +226,99 @@ sudo systemctl status zene-bot
 journalctl -u zene-bot -f
 ```
 
-### 4.4 Docker (tuỳ chọn, cả x86 lẫn ARM64)
+Muốn tạm dừng: `sudo systemctl stop zene-bot`. Muốn khởi động lại:
+`sudo systemctl restart zene-bot`.
+
+### Cách Docker (dùng được cả x86 lẫn ARM)
 
 ```bash
-cp config.example.txt .env   # điền token
+cp config.example.txt .env
 docker compose up -d --build
 docker compose logs -f
-curl http://localhost:8080/health
 ```
 
-`docker-compose.yml` dùng `restart: unless-stopped`, mount `logs/` và `zene/data`
-(read-only), healthcheck qua `/health`.
+Bot sẽ tự restart nếu chết, và có thể kiểm tra tại `http://localhost:8080/health`.
 
 ---
 
-## 5. Cấu hình (file `.env`)
+## 5. File `.env` là gì?
 
-| Biến | Mặc định | Ý nghĩa |
-|---|---|---|
-| `DISCORD_TOKEN` | (bắt buộc) | Token bot. Không commit file `.env`. |
-| `ZENE_OWNER_IDS` | owner legacy | Comma-separated User ID được quyền reload/restart/shutdown |
-| `ZENE_PREFIXES` | `z/,Z/,h/,H/` | Prefix lệnh |
-| `ZENE_REQUIRED_EXTENSIONS` | 5 core cog | Cog bắt buộc |
-| `ZENE_OPTIONAL_EXTENSIONS` | 7 legacy cog | Cog tùy chọn, lỗi thì vẫn chạy |
-| `ZENE_DISABLED_EXTENSIONS` | rỗng | Tắt cog cụ thể |
-| `ZENE_LOG_LEVEL` | `INFO` | `DEBUG/INFO/WARNING/ERROR` |
-| `ZENE_LOG_DIR` | `./logs` | Thư mục log |
-| `ZENE_MEMBERS_INTENT` | `false` | Bật Server Members Intent |
-| `ZENE_IGNORE_BOTS` | `true` | Bỏ qua tin nhắn từ bot khác |
-| `ZENE_TRIGGER_COOLDOWN` | `1.5` | Cooldown trigger tự động (giây) |
-| `ZENE_MAX_RESTARTS` | `10` | Số lần restart tối đa trước khi dừng |
-| `ZENE_STABLE_SECONDS` | `60` | Chạy ổn định ≥ giá trị này → reset failure counter |
-| `ZENE_BOOT_TIMEOUT` | `120` | Timeout login (giây) |
-| `HEALTH_HOST` / `HEALTH_PORT` | `127.0.0.1:8080` | Health endpoint (`0` để tắt) |
-| `DMM_API_ID` / `DMM_AFFILIATE_ID` | rỗng | Chỉ cần cho `zene.dmm_tracker` (tắt mặc định) |
-| `ZENE_DIGEST_CHANNEL_ID` | `0` | Kênh nhận bản tin hàng ngày (`0` = tắt) |
-| `ZENE_DIGEST_HOUR` / `ZENE_DIGEST_MINUTE` | `6` / `30` | Giờ phát bản tin |
-| `ZENE_DIGEST_TIMEZONE` | `Asia/Ho_Chi_Minh` | Múi giờ của lịch phát |
-| `ZENE_DIGEST_PING` | `false` | Có `@everyone` trong bản tin không |
+Đây là nơi bạn cất token và các cài đặt. Tạo bằng cách copy `config.example.txt`
+đổi tên thành `.env`. **Không commit file này lên GitHub.**
 
-Xem `config.example.txt` để có bản mẫu đầy đủ.
+Những cái quan trọng nhất:
 
----
-
-## 6. Cấu trúc source
-
-```
-run.py                  entrypoint production (supervisor)
-main.py                 entrypoint legacy (rollback)
-zene_core/
-  config.py             cấu hình từ env, immutable, redact token
-  bot.py                ZeneBot: setup_hook, error handler, graceful close
-  supervisor.py         restart/backoff, signal, health server
-  resilience.py         retry, circuit breaker, token bucket
-  net.py                aiohttp session chung + breaker
-  assets.py             nạp memes.json 1 lần, path an toàn, composite ảnh PNG
-  triggers.py/content.py registry trigger + loader nội dung meme
-  avwiki.py             client av-wiki.net + dịch + ảnh FANZA
-  cogs/                 conversation, ops, avwiki, amlich, giaxang, digest
-zene/data/memes.json    nguồn dữ liệu meme duy nhất
-docs/ADD_MEMES.md       hướng dẫn thêm meme bằng tay
-dmm/                    client DMM đã vá (thay dmm-search3)
-zene/                   cog legacy (NSFW, wiki, trans, nhentai…)
-tests/test_core.py      unit test thuần
-pyproject.toml          cấu hình ruff
-```
-
----
-
-## 7. Xử lý sự cố
-
-| Triệu chứng | Cách xử lý |
+| Dòng | Bạn cần biết |
 |---|---|
-| `PrivilegedIntentsRequired` | Bật **Message Content Intent** trong Developer Portal |
-| `LoginFailure` | Token sai/cũ → Reset Token, cập nhật `.env` |
-| Không thấy slash command | Cần scope `applications.commands`; đợi cache hoặc restart bot |
-| `/code` báo dùng kênh NSFW | Bật NSFW cho kênh đó |
-| Bot không phản hồi prefix | Kiểm tra `ZENE_PREFIXES`, Message Content Intent |
-| `z/code` không có ảnh | av-wiki không có ảnh; bot fallback sang FANZA cần `DMM_API_ID`/`DMM_AFFILIATE_ID` |
-| Dịch JP→VN trả nguyên JP | Google rate-limit (429); bot tự fallback, thử lại sau |
-| Extension failed | `z/extensions` xem lý do, `z/reload <module>` sửa |
-| Health trả 503 | Bot chưa READY hoặc có cog lỗi — xem log |
+| `DISCORD_TOKEN=` | Bắt buộc. Dán token bot vào đây. |
+| `ZENE_OWNER_IDS=` | ID Discord của bạn, để dùng `z/restart`, `z/shutdown`… |
+| `ZENE_PREFIXES=` | Câu bắt đầu lệnh. Mặc định là `z/`, `Z/`, `h/`, `H/`. |
+| `ZENE_LOG_LEVEL=` | `INFO` là vừa đủ. Đổi `WARNING` nếu thấy log quá nhiều. |
+| `HEALTH_PORT=` | Cổng kiểm tra sức khỏe, mặc định `8080`. Đặt `0` để tắt. |
+
+Mấy cái nâng cao (không cần đụng nếu mới dùng):
+
+| Dòng | Làm gì |
+|---|---|
+| `ZENE_MEMBERS_INTENT=` | Bật khi bạn cần quyền thành viên; mặc định `false`. |
+| `ZENE_IGNORE_BOTS=` | `true` để bot không phản hồi bot khác (tránh tự chọc nhau). |
+| `ZENE_TRIGGER_COOLDOWN=` | Mỗi người phải đợi bao nhiêu giây trước khi lại gửi meme. Mặc định `1.5`. |
+| `ZENE_MAX_RESTARTS=` | Tối đa 10 lần tự khởi động lại rồi dừng, tránh lặp vô hạn. |
+| `ZENE_DIGEST_CHANNEL_ID=` | ID kênh nhận bản tin âm lịch + giá xăng mỗi sáng. `0` là tắt. |
+| `ZENE_DIGEST_HOUR=` / `ZENE_DIGEST_MINUTE=` | Giờ phát bản tin, mặc định 6:30. |
+| `ZENE_DIGEST_TIMEZONE=` | Múi giờ, mặc định `Asia/Ho_Chi_Minh`. |
+| `ZENE_DIGEST_PING=` | `true` thì bản tin có `@everyone`. Mặc định `false`. |
+| `DMM_API_ID=` / `DMM_AFFILIATE_ID=` | Chỉ cần nếu bạn bật cog DMM (mặc định tắt). |
+
+Xem `config.example.txt` để có file mẫu đầy đủ.
 
 ---
 
-## 8. Phát triển
+## 6. Kiểm tra bot có khỏe không
+
+Mở trình duyệt vào:
+
+```
+http://127.0.0.1:8080/health
+```
+
+Thấy `status: ok` là tốt. Thấy `degraded` hoặc `503` nghĩa là bot chưa sẵn sàng
+hoặc có phần bị lỗi — xem log.
+
+Trong Discord gõ `z/health` và `z/extensions` cũng được.
+
+Log nằm ở `logs/zene.log`. Bot tự xóa log cũ và tự che token khi ghi log.
+
+---
+
+## 7. Khi có lỗi
+
+| Bạn thấy | Hiểu là | Làm gì |
+|---|---|---|
+| `PrivilegedIntentsRequired` | Bot chưa được bật quyền đọc tin nhắn | Vào Developer Portal bật **Message Content Intent** |
+| `LoginFailure` | Token sai hoặc cũ | Reset Token, dán token mới vào `.env` |
+| Không thấy lệnh `/` | Bot thiếu quyền app command | Tick `applications.commands` rồi mời bot lại; đợi vài phút |
+| `/code` bảo dùng kênh NSFW | Kênh đó chưa bật NSFW | Settings kênh → bật NSFW |
+| Gõ `z/...` không được | Prefix sai hoặc chưa bật intent | Kiểm tra `ZENE_PREFIXES` và Message Content Intent |
+| `z/code` không có ảnh | av-wiki không có ảnh, bot đang fallback | Cần điền `DMM_API_ID` và `DMM_AFFILIATE_ID` để lấy ảnh từ FANZA |
+| Dịch ra nguyên tiếng Nhật | Google chặn tạm (429) | Đợi rồi thử lại |
+| `z/extensions` báo failed | Một cog lỗi | `z/reload <tên>` hoặc restart bot |
+| Health trả 503 | Bot chưa READY hoặc cog lỗi | Xem `logs/zene.log` |
+
+---
+
+## 8. Tự thêm meme
+
+Xem hướng dẫn đầy đủ tại **[docs/ADD_MEMES.md](docs/ADD_MEMES.md)**.
+
+Nói ngắn gọn: sửa file `zene/data/memes.json`, kiểm tra lại bằng
+`python -m json.tool zene/data/memes.json`, rồi **restart cả process**
+(`Ctrl+C` rồi chạy lại `python run.py`, hoặc `systemctl restart zene-bot`).
+Lệnh `z/restart` chỉ tạo lại bot trong cùng process nên **chưa đủ** để nạp JSON mới.
+
+---
+
+## 9. Cho người muốn sửa code
 
 ```bash
 pip install ruff
@@ -316,19 +327,21 @@ python -m ruff format .
 python -m unittest discover -s tests -v
 ```
 
-Mọi thay đổi nên giữ: không commit `.env`, không log token, mọi HTTP phải có
-timeout + breaker, không blocking I/O trong async path.
+Ba nguyên tắc nhỏ: không commit `.env`, không ghi token vào log, và mọi gọi mạng
+phải có timeout. Mạng/chạy nền đã có sẵn trong `zene_core/net.py` và `resilience.py`.
 
-## 9. Thêm meme bằng tay
+Cấu trúc thư mục chính:
 
-Xem hướng dẫn đầy đủ tại **[docs/ADD_MEMES.md](docs/ADD_MEMES.md)**: thêm text
-trigger, contains trigger, ảnh ngẫu nhiên theo thư mục, câu chuyện ngẫu nhiên,
-asset command, nội dung cho lệnh có sẵn, validate JSON và restart đúng cách.
+```
+run.py                  chạy bot bản production
+main.py                 bản cũ, giữ để rollback
+zene_core/              phần lõi (config, bot, supervisor, các cog…)
+zene/data/memes.json    toàn bộ nội dung meme
+zene/                   cog cũ (NSFW, wiki, dịch…)
+dmm/                    client DMM đã vá
+docs/ADD_MEMES.md       hướng dẫn thêm meme
+tests/                  unit test
+```
 
-Tóm tắt: sửa `zene/data/memes.json` → `python -m json.tool zene/data/memes.json`
-→ **restart cả process** (`z/restart` là chưa đủ) → thử trong Discord.
-
----
-
-*Legacy `main.py` và `zene/communicate.py` được giữ để rollback; bản production
-luôn là `run.py`.*
+> `main.py` và `zene/communicate.py` là bản legacy, chỉ giữ để rollback.
+> Chạy production luôn dùng `run.py`.
