@@ -46,6 +46,9 @@ class ZeneBot(commands.Bot):
         self.ready_once = False
         self._send_semaphore = asyncio.Semaphore(8)
         self._closing = False
+        # Bound at construction so manual/failed setup_hook cannot leave slash
+        # errors unhandled.
+        self.tree.on_error = self._on_tree_error
 
     # ---------------------------------------------------------------- boot --
     async def setup_hook(self) -> None:
@@ -57,7 +60,6 @@ class ZeneBot(commands.Bot):
         for extension in self.config.optional_extensions:
             await self._load_extension(extension, required=False)
 
-        self.tree.on_error = self._on_tree_error
         try:
             synced = await self.tree.sync()
             log.info("slash commands synced: %d", len(synced))

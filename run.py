@@ -30,7 +30,18 @@ async def _run(config: Config) -> None:
     await supervisor.run()
 
 
+def _force_utf8_console() -> None:
+    """Windows consoles default to cp1252 and would crash on JP/VN log text."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        with contextlib.suppress(OSError, ValueError):
+            reconfigure(encoding="utf-8", errors="replace")
+
+
 def main() -> int:
+    _force_utf8_console()
     load_dotenv()  # local .env support; harmless when env vars are already set
     try:
         config = Config.from_env()
