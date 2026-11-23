@@ -135,7 +135,7 @@ Không bao giờ mặc định `replace`.
 
 | Biến | Mặc định | Ý nghĩa |
 |---|---|---|
-| `ZENE_MEDIA_LINKS_ENABLED` | `false` | Bật/tắt toàn tính năng |
+| `ZENE_MEDIA_LINKS_ENABLED` | `false` trong code, `true` trong `config.example.txt` | Bật/tắt toàn tính năng; copy template là chạy ngay |
 | `ZENE_MEDIA_ALLOWED_DOMAINS` | rỗng | Danh sách domain được phép |
 | `ZENE_MEDIA_MODE` | `reply` | `reply` hoặc `replace` |
 | `ZENE_MEDIA_MAX_LINKS` | `3` | Số link tối đa mỗi message |

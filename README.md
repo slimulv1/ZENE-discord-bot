@@ -392,19 +392,27 @@ tests/                  unit test
 ## 🖼️ 10. Tự động sửa embed link social media
 
 Bot tự nhận link trong tin nhắn và reply lại bằng gallery ảnh/video, thay vì để
-Discord hiển thị preview bị lỗi. Tính năng này **mặc định tắt**.
+Discord hiển thị preview bị lỗi. Tính năng này đã **bật sẵn trong template**.
 
 ### Bật nhanh
 
-Chỉ cần khai báo trong file `.env`:
+Không cần chỉnh gì thêm — chỉ copy template rồi điền `DISCORD_TOKEN`
+
+```powershell
+copy config.example.txt .env
+notepad .env   # chỉ cần điền DISCORD_TOKEN
+```
+
+Template đã có sẵn:
 
 ```
 ZENE_MEDIA_LINKS_ENABLED=true
 ZENE_MEDIA_ALLOWED_DOMAINS=x.com,instagram.com,facebook.com,tiktok.com,youtube.com
+ZENE_MEDIA_USE_PROXIES=true
+ZENE_MEDIA_AUTO_TRANSLATE=true
 ```
 
-Proxy/video adapters được **bật mặc định** theo đó, không cần cấu hình thêm.
-Nếu chỉ muốn hiển thị thumbnail, thêm `ZENE_MEDIA_USE_PROXIES=false`.
+Nếu chỉ muốn hiển thị thumbnail, đổi `ZENE_MEDIA_USE_PROXIES=false`.
 
 > Điền **tên miền gốc**, không có `www.`. Ví dụ `x.com` chứ không phải `www.x.com`.
 
