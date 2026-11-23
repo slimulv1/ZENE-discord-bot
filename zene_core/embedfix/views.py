@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import hashlib
+
 import discord
 
 from .models import ProbeResult
@@ -13,6 +15,79 @@ MAX_TEXT = 4000  # total across the whole LayoutView, not per item
 MAX_ITEMS = 9
 
 
+class CarouselView(discord.ui.LayoutView):
+    """Instagram-like carousel: one full-size image with ◀/▶ navigation.
+
+    Discord has no native carousel component for bots. A MediaGallery with a
+    single item renders the image at its real aspect ratio (no crop), while
+    the action row gives the familiar swipe-like UX without the tall grid.
+    """
+
+    def __init__(
+        self,
+        urls: tuple[str, ...],
+        *,
+        title: str = "",
+        context: str = "",
+        spoiler: bool = False,
+        hide_quote: bool = False,
+    ) -> None:
+        super().__init__(timeout=600)
+        self.urls = tuple(urls)
+        self.index = 0
+        self.title = title
+        self.context = context
+        self.spoiler = spoiler
+        self.hide_quote = hide_quote
+
+        key = hashlib.sha256("".join(self.urls).encode("utf-8")).hexdigest()[:12]
+        self.container = discord.ui.Container(accent_colour=discord.Colour.blurple())
+        self.text = discord.ui.TextDisplay("")
+        self.gallery = discord.ui.MediaGallery()
+        self.row = discord.ui.ActionRow()
+        self.previous = discord.ui.Button(
+            emoji="◀",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"zene:carousel:{key}:prev",
+        )
+        self.forward = discord.ui.Button(
+            emoji="▶",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"zene:carousel:{key}:next",
+        )
+        self.previous.callback = self._on_previous
+        self.forward.callback = self._on_forward
+        self.row.add_item(self.previous)
+        self.row.add_item(self.forward)
+        self.container.add_item(self.text)
+        self.container.add_item(self.gallery)
+        self.add_item(self.container)
+        self.add_item(self.row)
+        self._render()
+
+    def _render(self) -> None:
+        parts: list[str] = []
+        if self.title:
+            parts.append(f"**{self.title}**")
+        if self.context and not self.hide_quote:
+            parts.append(self.context)
+        parts.append(f"-# {self.index + 1}/{len(self.urls)}")
+        self.text.content = "\n".join(parts)[:MAX_TEXT]
+
+        self.gallery.clear_items()
+        self.gallery.add_item(media=self.urls[self.index], spoiler=self.spoiler)
+
+    async def _on_previous(self, interaction, button) -> None:
+        self.index = (self.index - 1) % len(self.urls)
+        self._render()
+        await interaction.response.edit_message(view=self)
+
+    async def _on_forward(self, interaction, button) -> None:
+        self.index = (self.index + 1) % len(self.urls)
+        self._render()
+        await interaction.response.edit_message(view=self)
+
+
 def build_view(
     result: ProbeResult,
     *,
@@ -21,15 +96,26 @@ def build_view(
     title: str | None = None,
     context: str | None = None,
 ) -> discord.ui.LayoutView:
+    heading = title or result.title
+    body = context if context is not None else result.context
+    media = result.media_urls[:MAX_ITEMS]
+
+    if result.kind == "gallery" and len(media) > 1:
+        return CarouselView(
+            media,
+            title=heading or "",
+            context=body or "",
+            spoiler=spoiler,
+            hide_quote=hide_quote,
+        )
+
     view = discord.ui.LayoutView(timeout=180)
     container = discord.ui.Container(accent_colour=discord.Colour.blurple())
 
     parts: list[str] = []
-    heading = title or result.title
     if heading:
         suffix = f" — {result.author}" if result.author else ""
         parts.append(f"**{heading}**{suffix}")
-    body = context if context is not None else result.context
     if body and not hide_quote:
         parts.append(body)
     if parts:

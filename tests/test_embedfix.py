@@ -26,7 +26,7 @@ from zene_core.embedfix.proxy_adapters import (
     x_status_parts,
 )
 from zene_core.embedfix.router import route_for
-from zene_core.embedfix.views import build_view
+from zene_core.embedfix.views import CarouselView, build_view
 
 
 class ConfigTests(unittest.TestCase):
@@ -406,17 +406,35 @@ class ProxyTests(unittest.TestCase):
         )
 
 
-class ViewTests(unittest.TestCase):
+class ViewTests(unittest.IsolatedAsyncioTestCase):
+    def test_multi_image_gallery_uses_instagram_style_carousel(self) -> None:
+        urls = (
+            "https://pbs.twimg.com/1.jpg",
+            "https://pbs.twimg.com/2.jpg",
+            "https://pbs.twimg.com/3.jpg",
+        )
+        view = build_view(ProbeResult("gallery", "Tiêu đề", "", urls, "caption", False, ""))
+        self.assertIsInstance(view, CarouselView)
+        self.assertEqual(len(view.gallery.items), 1)
+        self.assertEqual(len(view.row.children), 2)
+        self.assertIn("1/3", view.text.content)
+
+    async def test_carousel_next_switches_image(self) -> None:
+        urls = ("https://pbs.twimg.com/1.jpg", "https://pbs.twimg.com/2.jpg")
+        view = CarouselView(urls, title="T", context="C")
+        interaction = SimpleNamespace(response=SimpleNamespace(edit_message=AsyncMock()))
+        await view._on_forward(interaction, view.forward)
+        self.assertEqual(view.index, 1)
+        self.assertIn("2/2", view.text.content)
+        interaction.response.edit_message.assert_awaited_once()
+
     def test_gallery_caps_at_nine_for_even_grid(self) -> None:
         urls = tuple(f"https://pbs.twimg.com/{i}.jpg" for i in range(12))
         result = ProbeResult("gallery", "Tiêu đề", "", urls, "", False, "")
         view = build_view(result)
-        gallery = next(
-            component
-            for component in view.to_components()[0]["components"]
-            if component.get("type") == 12
-        )
-        self.assertEqual(len(gallery["items"]), 9)
+        self.assertIsInstance(view, CarouselView)
+        self.assertEqual(len(view.urls), 9)
+        self.assertEqual(len(view.gallery.items), 1)
 
     def test_components_v2_layout(self) -> None:
         result = ProbeResult(
@@ -428,7 +446,8 @@ class ViewTests(unittest.TestCase):
         )
         view = build_view(result, spoiler=True)
         components = view.to_components()
-        self.assertEqual(len(components), 1)
+        self.assertIsInstance(view, CarouselView)
+        self.assertEqual(len(components), 2)  # container + navigation row
         self.assertLessEqual(view.content_length(), 4000)
         self.assertLessEqual(len(components[0]["components"]), 10)
 
