@@ -2,10 +2,13 @@ import json
 import tempfile
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 
 from zene_core import content
+from zene_core.assets import AssetRegistry
 from zene_core.avwiki import _guess_source, looks_vietnamese
+from zene_core.cogs.conversation import ConversationCog
 from zene_core.config import Config
 from zene_core.content import fresh_commands, reload_data
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
@@ -139,6 +142,39 @@ class RouterTests(unittest.TestCase):
     def test_source_guess(self) -> None:
         self.assertEqual(_guess_source("习近平向李在明赠送手机"), "zh-CN")
         self.assertEqual(_guess_source("Hello world"), "en")
+
+
+class HotReloadPerfTests(unittest.TestCase):
+    def test_poll_interval_default_and_clamp(self) -> None:
+        self.assertEqual(Config.from_env({"DISCORD_TOKEN": "x" * 40}).reload_poll_seconds, 30.0)
+        env = {"DISCORD_TOKEN": "x" * 40, "ZENE_RELOAD_POLL_SECONDS": "1"}
+        self.assertEqual(Config.from_env(env).reload_poll_seconds, 5.0)
+        env["ZENE_RELOAD_POLL_SECONDS"] = "9999"
+        self.assertEqual(Config.from_env(env).reload_poll_seconds, 3600.0)
+
+    def test_assets_load_reuses_parsed_data(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "memes.json").write_text("{ this is NOT json", encoding="utf-8")
+            registry = AssetRegistry(root, root)
+            # Valid dict passed in: must be used, broken file on disk ignored.
+            registry.load({"assets": {"meme": "zene/data/image/a.png"}})
+            self.assertEqual(registry.file_for_command("meme"), "zene/data/image/a.png")
+
+    def test_cooldowns_keep_unchanged_buckets(self) -> None:
+        trigger = SimpleNamespace(name="text:siuu", cooldown=0.0)
+        bot = SimpleNamespace(
+            config=SimpleNamespace(trigger_cooldown=1.5),
+            triggers=SimpleNamespace(all=(trigger,)),
+        )
+        cog = ConversationCog(bot)
+        original = cog._cooldowns["text:siuu"]
+        cog.rebuild_cooldowns()
+        self.assertIs(cog._cooldowns["text:siuu"], original)
+
+        trigger.cooldown = 9.0
+        cog.rebuild_cooldowns()
+        self.assertIsNot(cog._cooldowns["text:siuu"], original)
 
 
 class ModifierTests(unittest.TestCase):

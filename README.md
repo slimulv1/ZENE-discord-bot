@@ -355,12 +355,13 @@ Xem hướng dẫn đầy đủ tại **[docs/ADD_MEMES.md](docs/ADD_MEMES.md)**
 
 Nói ngắn gọn: sửa file `zene/data/memes.json`, kiểm tra lại bằng
 `python -m json.tool zene/data/memes.json`. **Không cần restart** — bot tự phát hiện
-file thay đổi (mỗi ~2 giây) và nạp lại ngay: trigger mới có tác dụng, asset mới load,
+file thay đổi (mỗi ~30 giây, có jitter nhỏ) và nạp lại ngay: trigger mới có tác dụng, asset mới load,
 cooldown được dựng lại. Nếu file đang ghi dở hoặc sai cấu trúc, bot giữ dữ liệu cũ và
 ghi cảnh báo vào log thay vì crash.
 
 Bạn cũng có thể ép nạp ngay bằng lệnh `z/reloadmemes` (owner only). Tắt tự nạp bằng
-`ZENE_RELOAD_ON_CHANGE=false` nếu muốn kiểm soát tay.
+`ZENE_RELOAD_ON_CHANGE=false` nếu muốn kiểm soát tay. Đổi chu kỳ kiểm tra bằng
+`ZENE_RELOAD_POLL_SECONDS` (mặc định `30`, tối thiểu `5`).
 
 > 🧟 Muốn sửa cog legacy `zene/communicate.py`? Xem ngắn gọn ở
 > **[docs/ADD_MEMES.md — mục 7](docs/ADD_MEMES.md#7-sửa-communicatepy-legacy)**.

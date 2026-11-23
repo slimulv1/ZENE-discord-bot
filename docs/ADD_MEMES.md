@@ -34,13 +34,13 @@ python -m json.tool zene/data/memes.json
 
 Nếu lỗi in ra vị trí dòng → bạn thiếu dấu phẩy / ngoặc / nháy kép.
 
-> **Không cần restart process nữa.** Bot có file watcher: cứ ~2 giây kiểm tra
+> **Không cần restart process nữa.** Bot có file watcher: cứ ~30 giây kiểm tra
 > `memes.json`, khi thấy đổi thì nạp lại trigger, asset và cooldown ngay trong lúc
 > chạy. Lưu file xong đợi vài giây là gõ trigger mới được. Nếu lỡ lưu file lỗi, bot
 > giữ dữ liệu cũ và ghi cảnh báo vào log.
 >
 > Muốn nạp ngay không đợi: `z/reloadmemes` (owner only). Tắt tính năng này bằng
-> `ZENE_RELOAD_ON_CHANGE=false`.
+> `ZENE_RELOAD_ON_CHANGE=false`, hoặc đổi chu kỳ bằng `ZENE_RELOAD_POLL_SECONDS=30`.
 
 ---
 

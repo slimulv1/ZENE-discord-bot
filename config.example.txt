@@ -19,6 +19,8 @@ ZENE_DISABLED_EXTENSIONS=
 
 # Tự nạp lại memes.json khi file thay đổi (không cần restart bot)
 ZENE_RELOAD_ON_CHANGE=true
+# Chu kỳ kiểm tra file (giây, tối thiểu 5, có jitter nhỏ)
+ZENE_RELOAD_POLL_SECONDS=30
 
 # Resilience
 ZENE_REQUEST_TIMEOUT=10

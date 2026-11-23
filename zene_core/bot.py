@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import random
 import time
 from collections import Counter
 
@@ -48,6 +49,9 @@ class ZeneBot(commands.Bot):
         self._send_semaphore = asyncio.Semaphore(8)
         self._closing = False
         self._content_watch_task: asyncio.Task | None = None
+        # Serialize watcher + owner-triggered reloads; dedupe repeated failure logs.
+        self._reload_lock = asyncio.Lock()
+        self._reload_failure_logged = False
         # Bound at construction so manual/failed setup_hook cannot leave slash
         # errors unhandled.
         self.tree.on_error = self._on_tree_error
@@ -108,11 +112,16 @@ class ZeneBot(commands.Bot):
             return None
 
     async def _content_watcher(self) -> None:
-        """Poll memes.json; reload everything in-place when its stamp changes."""
+        """Poll memes.json; reload everything in-place when its stamp changes.
+
+        Stat runs in a worker thread so a slow/networked filesystem cannot block
+        the event loop. Jitter keeps multiple instances from stat-ing in lockstep.
+        """
+        interval = self.config.reload_poll_seconds
         last = await asyncio.to_thread(self._file_stamp)
         try:
             while not self._closing:
-                await asyncio.sleep(2.0)
+                await asyncio.sleep(max(0.0, interval + random.uniform(-1.0, 1.0)))
                 stamp = await asyncio.to_thread(self._file_stamp)
                 if stamp == last or stamp is None:
                     last = stamp
@@ -120,9 +129,12 @@ class ZeneBot(commands.Bot):
                 # Debounce: editors often write in multiple small chunks.
                 await asyncio.sleep(0.6)
                 settled = await asyncio.to_thread(self._file_stamp)
-                last = settled
                 if settled != stamp or settled is None:
+                    # Keep the FIRST stamp as baseline so a second write during
+                    # debounce is detected on the next poll instead of lost.
+                    last = stamp
                     continue
+                last = settled
                 await self.reload_content(reason="file changed")
         except asyncio.CancelledError:
             return
@@ -130,27 +142,44 @@ class ZeneBot(commands.Bot):
             log.error("content watcher lỗi: %s", exc)
 
     async def reload_content(self, *, reason: str = "manual") -> bool:
-        """Reload memes.json -> triggers, assets and cooldowns. Fail-soft."""
-        try:
-            registry = await asyncio.to_thread(content.reload_data)
-            await asyncio.to_thread(self.assets.load)
-        except (OSError, ValueError, TypeError, KeyError) as exc:
-            log.warning("không nạp lại memes.json (%s): %s — giữ dữ liệu cũ", reason, exc)
-            self.stats["content_reload_failed"] += 1
-            return False
+        """Reload memes.json -> triggers, assets and cooldowns. Fail-soft.
 
-        self.triggers = registry
-        cog = self.get_cog("ConversationCog")
-        if cog is not None and hasattr(cog, "rebuild_cooldowns"):
-            cog.rebuild_cooldowns()
-        self.stats["content_reload_ok"] += 1
-        log.info(
-            "đã nạp lại memes.json (%s): %d trigger, %d asset",
-            reason,
-            len(registry),
-            self.assets.command_count,
-        )
-        return True
+        A lock prevents the watcher and `z/reloadmemes` from racing. The dict
+        read here is handed straight to the asset registry so the file is read
+        and parsed only once per reload.
+        """
+        async with self._reload_lock:
+            try:
+                registry = await asyncio.to_thread(content.reload_data)
+                # content.reload_data already updated this global; reuse it.
+                await asyncio.to_thread(self.assets.load, content.DATA)
+            except (OSError, ValueError, TypeError, KeyError) as exc:
+                self.stats["content_reload_failed"] += 1
+                if not self._reload_failure_logged:
+                    log.warning(
+                        "không nạp lại memes.json (%s): %s — giữ dữ liệu cũ",
+                        reason,
+                        exc,
+                    )
+                    self._reload_failure_logged = True
+                return False
+
+            self.triggers = registry
+            cog = self.get_cog("ConversationCog")
+            if cog is not None:
+                try:
+                    cog.rebuild_cooldowns()
+                except Exception as exc:  # noqa: BLE001 - watcher must survive a bad cog
+                    log.warning("không dựng lại cooldown sau reload: %s", exc)
+            self._reload_failure_logged = False
+            self.stats["content_reload_ok"] += 1
+            log.info(
+                "đã nạp lại memes.json (%s): %d trigger, %d asset",
+                reason,
+                len(registry),
+                self.assets.command_count,
+            )
+            return True
 
     # --------------------------------------------------------------- events --
     async def on_ready(self) -> None:

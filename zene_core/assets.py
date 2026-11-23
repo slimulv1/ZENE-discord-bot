@@ -41,20 +41,33 @@ class AssetRegistry:
     def _norm(value: str) -> str:
         return unicodedata.normalize("NFC", str(value or "")).strip().lower()
 
-    def load(self) -> None:
-        """Synchronous by design — call via ``asyncio.to_thread`` at boot."""
+    def _ingest_mappings(self, data: dict) -> None:
+        """Populate command -> path from an already-parsed memes.json dict."""
+        for command, location in (data.get("assets") or {}).items():
+            key = self._norm(command)
+            rel = str(location).strip().replace("\\", "/")
+            if key and rel:
+                self._by_command[key] = rel
+
+    def load(self, data: dict | None = None) -> None:
+        """Load assets. Synchronous by design — call via ``asyncio.to_thread``.
+
+        Passing ``data`` reuses a dict that was already read from memes.json by
+        the hot-reload watcher, avoiding a second disk read and JSON parse.
+        """
         self._by_command.clear()
         self._folders.clear()
 
         memes = self.data_dir / "memes.json"
-        if memes.is_file():
+        if data is not None:
+            self._ingest_mappings(data)
+            log.info(
+                "asset registry: %d mappings từ memes.json (nạp lại)",
+                len(self._by_command),
+            )
+        elif memes.is_file():
             try:
-                data = json.loads(memes.read_text(encoding="utf-8"))
-                for command, location in data.get("assets", {}).items():
-                    key = self._norm(command)
-                    rel = str(location).strip().replace("\\", "/")
-                    if key and rel:
-                        self._by_command[key] = rel
+                self._ingest_mappings(json.loads(memes.read_text(encoding="utf-8")))
                 log.info("asset registry: %d mappings từ memes.json", len(self._by_command))
             except (OSError, ValueError, TypeError) as exc:
                 log.warning("Không đọc được %s: %s", memes, exc)

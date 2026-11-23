@@ -28,19 +28,32 @@ class ConversationCog(commands.Cog):
         self._excel_cooldowns: dict[str, commands.CooldownMapping] = {}
         self._excel_cooldown_default = max(0.1, bot.config.trigger_cooldown)
         self._cooldowns: dict[str, commands.CooldownMapping] = {}
+        self._cooldown_rates: dict[str, float] = {}
         self.rebuild_cooldowns()
 
     def rebuild_cooldowns(self) -> None:
-        """Rebuild per-trigger rate limits after a memes.json hot reload."""
+        """Refresh rate limits after a hot reload, reusing unchanged buckets.
+
+        Keeping existing ``CooldownMapping`` objects preserves per-user
+        rate-limit state and avoids reallocating every mapping on each reload.
+        """
         default = self._excel_cooldown_default
-        self._cooldowns = {
-            trigger.name: commands.CooldownMapping.from_cooldown(
-                1,
-                trigger.cooldown if trigger.cooldown > 0 else default,
-                commands.BucketType.user,
-            )
-            for trigger in self.bot.triggers.all
-        }
+        previous = self._cooldowns
+        previous_rates = self._cooldown_rates
+        refreshed: dict[str, commands.CooldownMapping] = {}
+        rates: dict[str, float] = {}
+        for trigger in self.bot.triggers.all:
+            rate = trigger.cooldown if trigger.cooldown > 0 else default
+            rates[trigger.name] = rate
+            existing = previous.get(trigger.name)
+            if existing is not None and previous_rates.get(trigger.name) == rate:
+                refreshed[trigger.name] = existing
+            else:
+                refreshed[trigger.name] = commands.CooldownMapping.from_cooldown(
+                    1, rate, commands.BucketType.user
+                )
+        self._cooldowns = refreshed
+        self._cooldown_rates = rates
 
     # ------------------------------------------------------------- listener --
     @commands.Cog.listener()

@@ -143,6 +143,7 @@ class Config:
     health_port: int = 8080
     max_asset_bytes: int = 8 * 1024 * 1024
     reload_on_change: bool = True  # hot-reload memes.json while running
+    reload_poll_seconds: float = 30.0  # how often to stat memes.json
 
     # Social media link embedder (disabled by default).
     media_links_enabled: bool = False
@@ -239,6 +240,9 @@ class Config:
             health_port=_env_int(env, "HEALTH_PORT", 8080),
             max_asset_bytes=max(1024, _env_int(env, "ZENE_MAX_ASSET_BYTES", 8 * 1024 * 1024)),
             reload_on_change=_env_bool(env, "ZENE_RELOAD_ON_CHANGE", True),
+            reload_poll_seconds=max(
+                5.0, min(3600.0, _env_float(env, "ZENE_RELOAD_POLL_SECONDS", 30.0))
+            ),
             media_links_enabled=_env_bool(env, "ZENE_MEDIA_LINKS_ENABLED", False),
             media_allowed_domains=frozenset(
                 domain.strip().lower()
