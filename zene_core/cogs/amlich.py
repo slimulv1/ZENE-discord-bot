@@ -6,7 +6,7 @@ import asyncio
 import contextlib
 import logging
 import re
-from datetime import date
+from datetime import date, datetime, timedelta, timezone
 
 import discord
 from discord import app_commands
@@ -99,12 +99,23 @@ def _conflict_lines(conflict: dict, year: int) -> list[str]:
         if ages and isinstance(ages[0], dict):
             chi = str(ages[0].get("chi") or "")
 
+    # Ages the library itself marks as conflicting under its Nạp Âm rule.
+    # They are a subset of the full lục-xung list; mark them so the embed does
+    # not imply all 8 ages are xung under that stricter rule.
+    confirmed = {
+        str(item.get("can_chi", "")).replace("*", "").strip()
+        for item in (conflict.get("conflicting_ages") or [])
+        if isinstance(item, dict)
+    }
+
     if chi:
-        lines = [
-            f"Tuổi {year - birth} : {name}"
-            for birth in range(year - 1, year - 101, -1)
-            if (name := str(vnlunar.get_year_can_chi(birth))).endswith(chi)
-        ]
+        lines = []
+        for birth in range(year - 1, year - 101, -1):
+            name = str(vnlunar.get_year_can_chi(birth))
+            if not name.endswith(chi):
+                continue
+            marker = " (*)" if name in confirmed else ""
+            lines.append(f"Tuổi {year - birth} : {name}{marker}")
         if lines:
             return lines
 
@@ -132,24 +143,44 @@ def _render(today: date) -> discord.Embed:
         f"năm {can_chi.get('year', '')}"
     )
 
-    conflict = vnlunar.get_conflicting_ages(jd, year) or {}
-    conflict_lines = _conflict_lines(conflict, year)
+    # get_full_info uses lunar['year'] for ages (vnlunar/__init__.py:209).
+    # Using the solar year shifts every age by 1 before Tết. Reuse the payload
+    # that get_full_info already prepared so both agree.
+    lunar_year = lunar.get("year", year)
+    conflict = info.get("conflicting_ages") or vnlunar.get_conflicting_ages(jd, lunar_year) or {}
+    conflict_lines = _conflict_lines(conflict, lunar_year)
 
     hour_lines = _normalize_hours(vnlunar.get_auspicious_hours(jd))
 
     embed = discord.Embed(
-        title=f"📅 {lunar.get('day', '')}-{lunar.get('month', '')}-{lunar.get('year', '')}",
+        title=(
+            f"📅 {lunar.get('day', '')}-{lunar.get('month', '')}-{lunar.get('year', '')}"
+            f"{' (nhuận)' if lunar.get('leap') == 1 else ''}"
+        ),
         description=_emojize(description),
         color=0x3498DB,
     )
+    # 12_stars.description mixes good and bad advice ("kỵ ..."), so labelling
+    # it "Phù hợp" is misleading. Prefer the explicit good_for/bad_for lists.
+    truc = info.get("12_constructions", {}) or {}
+    good = ", ".join(str(item) for item in (truc.get("good_for") or []))
+    bad = ", ".join(str(item) for item in (truc.get("bad_for") or []))
+    if good or bad:
+        work_value = f"✅ Nên: {good or '—'}\n🚫 Kỵ: {bad or '—'}"
+    else:
+        work_value = str((info.get("12_stars") or {}).get("description") or "")
     embed.add_field(
-        name="✅ Phù hợp",
-        value=_clip(info.get("12_stars", {}).get("description", "") or "Không có thông tin"),
+        name=f"☯️ {truc.get('name') or 'Trực trong ngày'} - nên/kỵ",
+        value=_clip(work_value) or "Không có thông tin",
         inline=False,
     )
     embed.add_field(
-        name="🚫 Tuổi xung",
-        value=_clip("\n".join(conflict_lines) or "Không có thông tin"),
+        name="🚫 Tuổi Xung (Lục xung - cùng chi)",
+        value=_clip(
+            ("\n".join(conflict_lines) + "\n(*) Xung theo Nạp Âm (vnlunar)")
+            if conflict_lines
+            else "Không có thông tin"
+        ),
         inline=False,
     )
     embed.add_field(
@@ -172,7 +203,11 @@ class AmLich(commands.Cog):
         with contextlib.suppress(discord.HTTPException, discord.ClientException):
             await ctx.defer()
         try:
-            embed = await asyncio.to_thread(_render, date.today())
+            # Pin to Vietnam time (UTC+7) — vnlunar assumes time_zone=7.0.
+            # date.today() would use the host's zone and can show the wrong day
+            # on machines running in UTC.
+            vietnam_today = datetime.now(timezone(timedelta(hours=7))).date()
+            embed = await asyncio.to_thread(_render, vietnam_today)
         except Exception as exc:  # noqa: BLE001 - vnlunar can raise many shapes
             await self.bot.safe_send(ctx, f"Không lấy được âm lịch: {exc}")
             return

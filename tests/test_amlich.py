@@ -37,12 +37,44 @@ class AmLichTests(unittest.TestCase):
             ],
         )
 
+    def test_library_confirmed_ages_are_marked(self) -> None:
+        lines = _conflict_lines(
+            {
+                "conflict_chi": "Mùi",
+                "conflicting_ages": [
+                    {"can_chi": "Đinh Mùi*", "age": 59},
+                    {"can_chi": "Quý Mùi*", "age": 23},
+                ],
+            },
+            2026,
+        )
+        self.assertIn("Tuổi 23 : Quý Mùi (*)", lines)
+        self.assertIn("Tuổi 59 : Đinh Mùi (*)", lines)
+        self.assertIn("Tuổi 11 : Ất Mùi", lines)
+        self.assertNotIn("Tuổi 11 : Ất Mùi (*)", lines)
+
+    def test_ages_use_lunar_year_near_tet(self) -> None:
+        # Solar 10-02-2026 is still lunar year 2025 (Ất Tỵ).
+        embed = _render(date(2026, 2, 10))
+        field = next(f for f in embed.fields if "Tuổi Xung" in f.name)
+        self.assertIn("Tuổi 8 : Đinh Dậu (*)", field.value)
+        self.assertNotIn("Tuổi 9 : Đinh Dậu", field.value)
+
     def test_render_conflict_field(self) -> None:
         # Solar 23-11-2026 = lunar 15-10-2026 in the reported screenshot.
         embed = _render(date(2026, 11, 23))
-        field = next(f for f in embed.fields if "Tuổi xung" in f.name)
+        field = next(f for f in embed.fields if "Tuổi Xung" in f.name)
+        self.assertIn("(Lục xung - cùng chi)", field.name)
         self.assertIn("Tuổi 11 : Ất Mùi", field.value)
+        self.assertIn("Tuổi 23 : Quý Mùi (*)", field.value)
+        self.assertIn("Tuổi 59 : Đinh Mùi (*)", field.value)
         self.assertIn("Tuổi 95 : Tân Mùi", field.value)
+        self.assertIn("(*) Xung theo Nạp Âm", field.value)
+
+    def test_leap_month_is_labelled(self) -> None:
+        # Solar 25-07-2025 = lunar 1/6/2025, leap month.
+        self.assertIn("nhuận", _render(date(2025, 7, 25)).title)
+        self.assertNotIn("nhuận", _render(date(2026, 11, 23)).title)
 
     def test_render_keeps_hours_on_single_lines(self) -> None:
         embed = _render(date(2026, 10, 15))
