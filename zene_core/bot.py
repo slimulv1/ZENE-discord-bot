@@ -158,6 +158,9 @@ class ZeneBot(commands.Bot):
     # --------------------------------------------------------------- helpers --
     async def safe_send(self, target, content: str | None = None, **kwargs):
         """Send without ever letting a Discord HTTP error escape into an event."""
+        # on_message listeners naturally pass a Message; use its channel.
+        if isinstance(target, discord.Message):
+            target = target.channel
         try:
             async with self._send_semaphore:
                 return await target.send(content=content, **kwargs)
