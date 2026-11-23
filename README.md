@@ -427,7 +427,7 @@ trong một bài, bot gộp tối đa 10 ảnh vào cùng một gallery.
 
 | Gõ | Tác dụng |
 |---|---|
-| `文` | Dịch nội dung |
+| `文` | Dịch lại nội dung (mặc định bot đã tự dịch) |
 | `es:` | Dịch sang tiếng Tây Ban Nha (đổi mã ngôn ngữ tuỳ ý) |
 | `\|\|` | Ẩn ảnh/video thành spoiler |
 | `~` | Ẩn phần trích dẫn |
@@ -441,17 +441,10 @@ Ví dụ: `文 es: || https://x.com/user/status/123`
 - Link phải nằm trong `ZENE_MEDIA_ALLOWED_DOMAINS`, nếu không bot bỏ qua.
 - Ảnh/video nhạy cảm chỉ hiện trong kênh đã bật NSFW.
 - Bot bỏ qua tin nhắn từ bot khác, và tự bỏ qua link đã xử lý trong 5 phút.
+- Tiêu đề/nội dung link **tự động dịch sang tiếng Việt**. Tắt bằng `ZENE_MEDIA_AUTO_TRANSLATE=false`.
 
 > Cần **discord.py >= 2.6**. Thiết kế chi tiết và kết quả test tại
 > [docs/SOCIAL_MEDIA.md](docs/SOCIAL_MEDIA.md).
-
----
-
-<p align="center">
-  <img src="docs/logo.png" alt="ZENE Bot" width="64">
-  <br>
-  <sub>Làm bằng 🐾, chạy bằng ☕, giữ bằng 🩺 tự hồi phục.</sub>
-</p>
 
 ---
 
@@ -467,3 +460,11 @@ Nói đơn giản:
 - Muốn dùng thương mại → liên hệ chủ repo để xin giấy phép riêng.
 
 Toàn văn nằm trong file [LICENSE](LICENSE). Đây **không phải** giấy phép "open source" theo OSI vì có điều kiện phi thương mại.
+
+---
+
+<p align="center">
+  <img src="docs/logo.png" alt="ZENE Bot" width="64">
+  <br>
+  <sub>Làm bằng 🐾, chạy bằng ☕, giữ bằng 🩺 tự hồi phục.</sub>
+</p>

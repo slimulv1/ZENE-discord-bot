@@ -171,7 +171,7 @@ class EmbedFixCog(commands.Cog):
         hide_quote = "hide_quote" in ctx.modifiers
         title = result.title
         body = result.context
-        if "translate" in ctx.modifiers or ctx.lang:
+        if self.cfg.media_auto_translate or "translate" in ctx.modifiers or ctx.lang:
             target = ctx.lang or self.cfg.media_lang
             if title:
                 translated = await to_vietnamese(title)

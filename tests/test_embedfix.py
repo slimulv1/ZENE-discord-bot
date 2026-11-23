@@ -21,6 +21,11 @@ class ConfigTests(unittest.TestCase):
         self.assertTrue(config.media_use_proxies)
         disabled = Config.from_env({"DISCORD_TOKEN": "x" * 40, "ZENE_MEDIA_USE_PROXIES": "false"})
         self.assertFalse(disabled.media_use_proxies)
+        self.assertTrue(config.media_auto_translate)
+        no_translate = Config.from_env(
+            {"DISCORD_TOKEN": "x" * 40, "ZENE_MEDIA_AUTO_TRANSLATE": "false"}
+        )
+        self.assertFalse(no_translate.media_auto_translate)
 
 
 class ModifierTests(unittest.TestCase):

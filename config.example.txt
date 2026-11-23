@@ -57,6 +57,8 @@ ZENE_MEDIA_STRICT_NSFW=true
 ZENE_MEDIA_SUPPRESS=false
 ZENE_MEDIA_USE_YTDLP=false
 ZENE_MEDIA_LANG=vi
+# Tự động dịch title/nội dung link sang ZENE_MEDIA_LANG. Đặt false để giữ nguyên.
+ZENE_MEDIA_AUTO_TRANSLATE=true
 # Proxy/video adapters bật cùng ZENE_MEDIA_LINKS_ENABLED. Đặt false để chỉ dùng thumbnail.
 ZENE_MEDIA_USE_PROXIES=true
 ZENE_MEDIA_PROXY_HOSTS=api.fxtwitter.com,ifx.up.railway.app,facebed.com,offload.tnktok.com

@@ -81,7 +81,7 @@ async def dmm_image(code: str, api_id: str, affiliate_id: str) -> str:
 
 
 async def to_vietnamese(text: str) -> str:
-    """Translate Japanese -> Vietnamese; keep the original if the API is down."""
+    """Translate any detected language -> Vietnamese; keep original if API is down."""
     if not text:
         return ""
     cached = _TRANSLATE_CACHE.get(text)
@@ -91,7 +91,7 @@ async def to_vietnamese(text: str) -> str:
     # deep_translator hits translate.google.com which rate-limits aggressively.
     # The gtx endpoint is the same service but tolerates our request rate.
     url = "https://translate.googleapis.com/translate_a/single?" + urlencode(
-        {"client": "gtx", "sl": "ja", "tl": "vi", "dt": "t", "q": text}
+        {"client": "gtx", "sl": "auto", "tl": "vi", "dt": "t", "q": text}
     )
     data = await fetch_json(url, name="ja-vi")
     result = text
