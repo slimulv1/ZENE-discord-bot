@@ -114,7 +114,7 @@ Không bao giờ mặc định `replace`.
 |---|---|
 | Domain không trong allowlist | Bỏ qua hoàn toàn |
 | Shortlink redirect về IP private | Chặn, log hash, bỏ qua |
-| oEmbed trả `type=photo` | Gửi thumbnail/embed ngay |
+| oEmbed trả `type=photo` | Gửi ngay message V2 gồm `TextDisplay` + `MediaGallery` thumbnail |
 | yt-dlp hỏng extractor | Breaker mở → fallback thumbnail + link |
 | Video > 8MB | Transcode; nếu vẫn to → thumbnail + link |
 | 403/429 từ platform | Backoff jitter, tạm quarantine domain |
@@ -141,6 +141,9 @@ Không bao giờ mặc định `replace`.
 | `ZENE_MEDIA_WORKERS` | `1` | Số worker tải cùng lúc |
 | `ZENE_MEDIA_QUEUE_SIZE` | `32` | Giới hạn hàng đợi, vượt thì bỏ link + đếm `dropped` |
 | `ZENE_MEDIA_STRICT_NSFW` | `true` | Không rõ nhạy cảm thì coi như NSFW |
+
+> Components V2 (`LayoutView`/`MediaGallery`) cần **discord.py >= 2.6**.
+> `requirements.txt` đã nâng mức tối thiểu; bản 2.0–2.5 sẽ lỗi ngay khi import cog.
 
 ---
 
@@ -177,7 +180,7 @@ Bot này là **embed fixer**, không phải downloader. Điểm khác biệt l�
 | Modifier ngay trong tin nhắn: `文` dịch, `~` ẩn quote, `||` spoiler, `^` hiện parent reply, `es:` chọn ngôn ngữ | Thiết kế cú pháp điều khiển per-link thay vì chỉ env cứng |
 | Cấu hình theo server + channel + platform; NSFW/spoiler auto theo kênh age-restricted | Mở rộng config hiện tại theo guild/channel |
 | Context: quote, parent reply, Community Notes, comment Reddit cụ thể | Adapter nên trả `context` chứ không chỉ media |
-| Gallery view: ảnh + video của cùng 1 post trong 1 gallery | Dùng `discord.ui.MediaGallery` (Components V2); fallback là nhiều embed nếu cần |
+| Gallery view: ảnh + video của cùng 1 post trong 1 gallery | Dùng `discord.ui.MediaGallery` (Components V2); nếu không dùng V2 thì gửi nhiều ảnh/file trong 1 message, **không** trộn embed với V2 |
 | Dịch tự động theo server/channel | Tái dùng `to_vietnamese()` hiện có |
 | Freemium $1.99/server/tháng cho custom avatar, bỏ watermark, bot phản hồi bot, translation limit cao | Gợi ý mô hình bền vững nếu public bot |
 
@@ -208,11 +211,14 @@ class ProbeResult:
     author: str
     media_urls: tuple[str, ...]          # URL từ CDN của nền tảng
     context: str = ""                    # quote / parent / community note
-    nsfw: bool = False
+    nsfw: bool | None = None             # None = chưa biết → coi như NSFW
 ```
 
-`media_urls` là **URL từ nền tảng**, không phải file tải về — đây là khác biệt lớn nhất
-so với thiết kế yt-dlp ban đầu.
+`media_urls` là **URL asset trực tiếp từ nền tảng** (ảnh/video), không phải URL trang
+web và không phải file tải về — đây là khác biệt lớn nhất so với thiết kế yt-dlp ban đầu.
+Nếu chỉ có URL trang (ví dụ link tweet) thì phải lấy `thumbnail_url` làm fallback;
+`MediaGallery` cần URL tới asset (`UnfurledMediaItem` chấp nhận arbitrary URL hoặc
+`attachment://<filename>` — đã verify trong docs discord.py 2.7).
 
 ### 10.2 Parser modifier
 
@@ -247,11 +253,11 @@ trong bản trước: `parse_modifiers(raw)` với `raw` là URL thì không bao
 def build_gallery(result: ProbeResult, spoiler: bool) -> discord.ui.LayoutView:
     view = discord.ui.LayoutView(timeout=180)
     container = discord.ui.Container(accent_colour=discord.Colour.blurple())
-    container.add_item(
-        discord.ui.TextDisplay(f"**{result.title}** — {result.author}"[:4096])
-    )
+    text = f"**{result.title}** — {result.author}"
     if result.context:
-        container.add_item(discord.ui.TextDisplay(result.context[:4096]))
+        text += f"\n{result.context}"
+    # TỔNG text trong TOÀN view <= 4000 ký tự, không phải 4000/item.
+    container.add_item(discord.ui.TextDisplay(text[:4000]))
 
     gallery = discord.ui.MediaGallery()
     for url in result.media_urls[:10]:          # MediaGallery tối đa 10 item
@@ -265,11 +271,23 @@ def build_gallery(result: ProbeResult, spoiler: bool) -> discord.ui.LayoutView:
 `TextDisplay` đều tồn tại; `MediaGallery.add_item` nhận `media=str|discord.File` và
 `spoiler=bool`, ném `ValueError` nếu quá 10 item.
 
-> **Đã verify từ Discord API docs:** Components V2 dùng flag `IS_COMPONENTS_V2`; khi
-> bật, gửi `content`, `embeds`, `sticker_ids` hoặc `poll` sẽ bị **400 BAD REQUEST**.
-> Discord tự động bật flag khi dùng `LayoutView`. Giới hạn: **10 top-level component**
-> và **30 component tổng** mỗi message. Thiết kế hiện tại dùng 1 container + 3 child
-> → an toàn. Video chỉ là 1 item trong `MediaGallery`, không cần đính kèm file.
+> **Đã verify từ Discord API docs + discord.py 2.7.1:** Components V2 dùng flag
+> `IS_COMPONENTS_V2`; gửi `content`, `embeds`, `sticker_ids` hoặc `poll` sẽ bị
+> **400 BAD REQUEST**. Discord tự bật flag khi dùng `LayoutView`.
+> Giới hạn text: **4000 ký tự TỔNG** (`LayoutView.content_length()`), mỗi
+> `TextDisplay` tối đa 4000. Số component: discord.py `LayoutView` enforce **40 child**,
+> Discord changelog có chỗ ghi 30 → thiết kế dùng **≤30 để an toàn**.
+> `LayoutView`/`Container`/`MediaGallery`/`TextDisplay` đều `versionadded:: 2.6`,
+> nên `requirements.txt` đã nâng lên `discord.py>=2.6,<3.0`.
+
+Nếu fallback phải transcode file **local** (video > 8MB), phải đính kèm file và trỏ
+component tới nó — Components V2 ẩn attachment nếu không có component nào tham chiếu tới nó:
+
+```python
+file = discord.File(temp_path, filename="clip.mp4")
+gallery.add_item(media="attachment://clip.mp4", spoiler=spoiler)
+await message.reply(file=file, view=view)   # KHÔNG truyền embed/content
+```
 
 ### 10.4 Ẩn preview của message gốc
 
@@ -318,23 +336,30 @@ async def on_message(message):
     matches = list(LINK_RE.finditer(message.content))
     if not matches or len(matches) > cfg.max_links:
         return
-    if QUEUE.full():                 # queue có maxsize, không để memory phình
-        STATS["dropped"] += 1
-        return
     for match in matches:
         raw = match.group(0)
         _, mods, lang = parse_modifiers(message.content[: match.start()])
-        ctx = LinkContext(message, raw, canonical(raw), mods, lang)
-        await QUEUE.put(ctx)         # không await download ở đây
+        try:
+            # put_nowait tránh block event handler; check-then-put không atomic.
+            await QUEUE.put_nowait(
+                LinkContext(message, raw, await canonical(raw), mods, lang)
+            )
+        except asyncio.QueueFull:
+            STATS["dropped"] += 1
 ```
 
-`canonical()` phải trả URL đã validate: scheme `https`, host nằm trong allowlist
-(theo **registrable domain**, dùng `tldextract`, không so sánh chuỗi đuôi), bỏ tracking
-param, và chặn IP private sau khi resolve shortlink.
+`canonical()` là **async** vì resolve shortlink cần I/O. Nếu muốn giữ nó thuần, hãy
+chuyển bước resolve vào worker. `canonical()` phải trả URL đã validate: scheme `https`,
+host nằm trong allowlist (theo **registrable domain**, dùng `tldextract`, không so sánh
+chuỗi đuôi), bỏ tracking param, chặn IP private sau redirect. Ảnh/video trả về cũng
+phải là asset URL `https` (hoặc `attachment://`), không phải URL trang web.
 
-Worker: `probe()` → nếu có `media_urls` → `build_gallery()` ngay; nếu không →
-`fetch()` (yt-dlp trong `asyncio.to_thread` + `wait_for`) → build → `suppress` →
-reply/webhook → cache hash.
+Worker: `probe()` → **dùng modifier**: `spoiler` → `build_gallery(..., spoiler=True)`;
+`translate` → `to_vietnamese(result.title/context)` (hoặc theo `ctx.lang`);
+`hide_quote` → bỏ `result.context`; `parent` → giữ parent reply. Nếu có `media_urls`
+→ build ngay; nếu không → `fetch()` (yt-dlp trong `asyncio.to_thread` + `wait_for`)
+→ build → `suppress` → reply/webhook → cache hash. Đừng để modifier chỉ được parse
+rồi bỏ đi như bản trước.
 
 ### 10.7 Checklist nghiệm thu
 
@@ -347,6 +372,10 @@ reply/webhook → cache hash.
 - [ ] Test temp dir được dọn trong `finally`.
 - [ ] Test modifier `文 es: ... ||` đặt **trước** URL vẫn được nhận, và `~` trong query URL không bị xoá.
 - [ ] Test `MediaGallery` nhận URL `https` nhưng chặn `http://127.0.0.1/...` từ oEmbed.
+- [ ] Test `view.content_length() <= 4000` với title dài + context dài (không cộng 4000/item).
+- [ ] Test `nsfw=None` → chặn ở kênh thường; `nsfw=False` → cho phép.
+- [ ] Test transcode local: `discord.File(...)` + `attachment://clip.mp4` hiển thị được.
+- [ ] Kiểm tra môi trường có `discord.py>=2.6` trước khi import `LayoutView`.
 
 ### 10.8 Thư viện nên dùng / đã có
 
