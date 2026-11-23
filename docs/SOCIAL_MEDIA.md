@@ -83,9 +83,9 @@ Dùng field từ `info_dict`/oEmbed:
 
 | Kết quả | Điều kiện | Hành động |
 |---|---|---|
-| `image` | oEmbed `type=photo`, hoặc info có `ext` ảnh, không có `vcodec` | gửi 1 `discord.File` |
-| `video` | có `vcodec` / `duration` / `format` video | chọn format nhỏ nhất có video+audio, ≤8MB |
-| `gallery` | có `image_urls`/`thumbnails` nhiều phần (carousel Instagram/TikTok photo post) | gửi tối đa 10 ảnh |
+| `image` | oEmbed `type=photo`, hoặc info có `ext` ảnh, không có `vcodec` | đưa URL vào `MediaGallery` (1 item) |
+| `video` | có `vcodec` / `duration` / `format` video | đưa URL vào `MediaGallery` (1 item); chỉ tải/transcode khi fallback |
+| `gallery` | có `image_urls`/`thumbnails` nhiều phần (carousel Instagram/TikTok photo post) | tối đa 10 item trong 1 `MediaGallery` |
 | `none` | không xác định được | fallback thumbnail + link gốc |
 
 Nếu video > 8MB: FFmpeg transcode với budget (ví dụ 720p, 1.2 Mbps, tối đa 45s). Vẫn vượt → gửi thumbnail + link.
@@ -120,7 +120,10 @@ Không bao giờ mặc định `replace`.
 | 403/429 từ platform | Backoff jitter, tạm quarantine domain |
 | Rate limit Discord | discord.py tự xử lý; worker giới hạn concurrency |
 | Link NSFW trong kênh thường | Không tải, nhắc chuyển kênh NSFW |
-| Bot bị spam link | Cooldown per-user + max 3 link/message |
+| Bot bị spam link | Cooldown per-user + max 3 link/message + queue có `maxsize` |
+| oEmbed trả URL độc hại (http://IP private) | Validate scheme `https` + host public trước khi đưa vào `MediaGallery` |
+| URL media CDN hết hạn (signed URL) | Cache TTL ngắn hoặc re-probe khi gửi thấy 403 |
+| Không biết media có nhạy cảm không | Mặc định coi là NSFW, chỉ gửi ở kênh age-restricted |
 
 ---
 
@@ -136,6 +139,8 @@ Không bao giờ mặc định `replace`.
 | `ZENE_MEDIA_TIMEOUT` | `25` | Timeout tải một link |
 | `ZENE_MEDIA_CACHE_TTL` | `3600` | TTL cache theo hash URL |
 | `ZENE_MEDIA_WORKERS` | `1` | Số worker tải cùng lúc |
+| `ZENE_MEDIA_QUEUE_SIZE` | `32` | Giới hạn hàng đợi, vượt thì bỏ link + đếm `dropped` |
+| `ZENE_MEDIA_STRICT_NSFW` | `true` | Không rõ nhạy cảm thì coi như NSFW |
 
 ---
 
@@ -172,7 +177,7 @@ Bot này là **embed fixer**, không phải downloader. Điểm khác biệt l�
 | Modifier ngay trong tin nhắn: `文` dịch, `~` ẩn quote, `||` spoiler, `^` hiện parent reply, `es:` chọn ngôn ngữ | Thiết kế cú pháp điều khiển per-link thay vì chỉ env cứng |
 | Cấu hình theo server + channel + platform; NSFW/spoiler auto theo kênh age-restricted | Mở rộng config hiện tại theo guild/channel |
 | Context: quote, parent reply, Community Notes, comment Reddit cụ thể | Adapter nên trả `context` chứ không chỉ media |
-| Gallery view: ảnh + video của cùng 1 post trong 1 gallery | Dùng nhiều embed/file trong 1 message thay vì chỉ 1 file |
+| Gallery view: ảnh + video của cùng 1 post trong 1 gallery | Dùng `discord.ui.MediaGallery` (Components V2); fallback là nhiều embed nếu cần |
 | Dịch tự động theo server/channel | Tái dùng `to_vietnamese()` hiện có |
 | Freemium $1.99/server/tháng cho custom avatar, bỏ watermark, bot phản hồi bot, translation limit cao | Gợi ý mô hình bền vững nếu public bot |
 
@@ -212,24 +217,29 @@ so với thiết kế yt-dlp ban đầu.
 ### 10.2 Parser modifier
 
 ```python
+LINK_RE = re.compile(r"https?://[^\s<>]+", re.I)
 MOD_MAP = {"文": "translate", "~": "hide_quote", "||": "spoiler", "^": "parent"}
-LANG = re.compile(r"^([a-z]{2}):", re.I)
+LANG = re.compile(r"\b([a-z]{2}(?:[-_][a-zA-Z]{2})?):", re.I)
 
 def parse_modifiers(text: str) -> tuple[str, frozenset[str], str | None]:
-    mods: set[str] = set()
+    # Chỉ đọc phần KHÔNG phải URL. Nếu replace trên cả câu, một dấu '~'
+    # hoặc '||' trong query string sẽ làm hỏng link.
+    outside = " ".join(LINK_RE.split(text)[::2])
+    mods = {name for token, name in MOD_MAP.items() if token in outside}
+    cleaned = outside
+    for token in MOD_MAP:
+        cleaned = cleaned.replace(token, "")
     lang = None
-    match = LANG.match(text)
+    match = LANG.search(cleaned)
     if match:
-        lang = match.group(1).lower()
-        text = text[match.end():]
-    for token, name in MOD_MAP.items():
-        if token in text:
-            mods.add(name)
-            text = text.replace(token, "")
-    return text.strip(), frozenset(mods), lang
+        lang = match.group(1).lower().replace("_", "-")
+        cleaned = cleaned[: match.start()] + cleaned[match.end() :]
+    return cleaned.strip(), frozenset(mods), lang
 ```
 
-Chạy parser **trước** khi canonical hoá URL. Không dùng regex tham lam nuốt cả câu.
+Parser chạy trên **đoạn chữ trước mỗi link**, không phải trên chính URL. Đã sửa lỗi
+trong bản trước: `parse_modifiers(raw)` với `raw` là URL thì không bao giờ thấy được
+`文`, `~`, `es:` vì mấy ký tự đó nằm ngoài URL.
 
 ### 10.3 Dựng gallery bằng Components V2 (API đã verify tồn tại)
 
@@ -255,8 +265,11 @@ def build_gallery(result: ProbeResult, spoiler: bool) -> discord.ui.LayoutView:
 `TextDisplay` đều tồn tại; `MediaGallery.add_item` nhận `media=str|discord.File` và
 `spoiler=bool`, ném `ValueError` nếu quá 10 item.
 
-> **Không trộn** `embed=` / `content=` với `view=LayoutView` (Components V2) — inferred,
-> cần smoke test khi implement.
+> **Đã verify từ Discord API docs:** Components V2 dùng flag `IS_COMPONENTS_V2`; khi
+> bật, gửi `content`, `embeds`, `sticker_ids` hoặc `poll` sẽ bị **400 BAD REQUEST**.
+> Discord tự động bật flag khi dùng `LayoutView`. Giới hạn: **10 top-level component**
+> và **30 component tổng** mỗi message. Thiết kế hiện tại dùng 1 container + 3 child
+> → an toàn. Video chỉ là 1 item trong `MediaGallery`, không cần đính kèm file.
 
 ### 10.4 Ẩn preview của message gốc
 
@@ -302,14 +315,22 @@ Có thể cache webhook theo channel thay vì tạo/xoá mỗi lần. Webhook tr
 async def on_message(message):
     if not cfg.enabled or message.author.bot or message.guild is None:
         return
-    links = LINK_RE.findall(message.content)
-    if not links or len(links) > cfg.max_links:
+    matches = list(LINK_RE.finditer(message.content))
+    if not matches or len(matches) > cfg.max_links:
         return
-    for raw in links:
-        text, mods, lang = parse_modifiers(raw)
+    if QUEUE.full():                 # queue có maxsize, không để memory phình
+        STATS["dropped"] += 1
+        return
+    for match in matches:
+        raw = match.group(0)
+        _, mods, lang = parse_modifiers(message.content[: match.start()])
         ctx = LinkContext(message, raw, canonical(raw), mods, lang)
-        await QUEUE.put(ctx)          # không await download ở đây
+        await QUEUE.put(ctx)         # không await download ở đây
 ```
+
+`canonical()` phải trả URL đã validate: scheme `https`, host nằm trong allowlist
+(theo **registrable domain**, dùng `tldextract`, không so sánh chuỗi đuôi), bỏ tracking
+param, và chặn IP private sau khi resolve shortlink.
 
 Worker: `probe()` → nếu có `media_urls` → `build_gallery()` ngay; nếu không →
 `fetch()` (yt-dlp trong `asyncio.to_thread` + `wait_for`) → build → `suppress` →
@@ -324,6 +345,21 @@ reply/webhook → cache hash.
 - [ ] Test breaker mở sau 3 lỗi, fallback vẫn gửi link gốc.
 - [ ] Test không log URL đầy (chỉ hash).
 - [ ] Test temp dir được dọn trong `finally`.
+- [ ] Test modifier `文 es: ... ||` đặt **trước** URL vẫn được nhận, và `~` trong query URL không bị xoá.
+- [ ] Test `MediaGallery` nhận URL `https` nhưng chặn `http://127.0.0.1/...` từ oEmbed.
+
+### 10.8 Thư viện nên dùng / đã có
+
+| Thư viện | Trạng thái | Dùng cho |
+|---|---|---|
+| `tldextract` | **cần thêm** (`>=3,<4`) | Lấy registrable domain đúng; tránh `evil-x.com` giả `x.com` |
+| `yarl` | đã có (dependency của aiohttp) | Chuẩn hoá URL, bỏ tracking param, so sánh host |
+| `aiohttp` | đã có trong `net.py` | Gọi oEmbed/API qua session chung + breaker |
+| `cachetools` | đã có | TTL cache theo hash URL |
+| `yt-dlp` | **chỉ thêm khi implement Phase 2** | Fallback khi oEmbed không có media URL |
+| FFmpeg (binary hệ thống) | cần cài riêng trên Pi nếu bật transcode | Giảm video > 8MB; không phải pip package |
+
+**Không cần** thêm `pydantic`/`httpx`: dataclass + `net.py` hiện tại đã đủ, tránh phình dependency trên ARM.
 
 ## 11. Câu hỏi còn mở
 
