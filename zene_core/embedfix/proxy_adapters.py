@@ -7,6 +7,7 @@ import html
 import logging
 import re
 from collections.abc import Iterable
+from urllib.parse import urlencode
 
 from cachetools import TTLCache
 from yarl import URL
@@ -20,10 +21,11 @@ log = logging.getLogger(__name__)
 
 # Short-lived negative cache: a dead shortcode should not cost 5s on every resend.
 _IFX_MISS_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
+_TIKTOK_MISS_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
 
 X_STATUS_RE = re.compile(r"^/([^/]+)/status/(\d+)")
 IG_SHORTCODE_RE = re.compile(r"^/(?:p|reel|reels)/([^/?]+)")
-TIKTOK_ID_RE = re.compile(r"/video/(\d+)")
+TIKTOK_ID_RE = re.compile(r"/(?:video|photo|reel)/(\d+)")
 MP4_RE = re.compile(r'https://video\.twimg\.com/[^"\\\s<>]+\.mp4\?[^"\\\s<>]*')
 RES_RE = re.compile(r"/avc1/(\d+)x(\d+)/")
 
@@ -244,28 +246,80 @@ class TiktokProxyAdapter:
         max_bytes: int = 8 * 1024 * 1024,
     ) -> ProbeResult:
         video_id = tiktok_video_id(url)
-        if video_id is None:
+        if video_id is None or video_id in _TIKTOK_MISS_CACHE:
             return ProbeResult("none", "", "", page_url=url)
         proxy = f"https://offload.tnktok.com/generate/video/{video_id}"
         session = await get_session()
         try:
-            async with session.head(proxy, allow_redirects=True, timeout=timeout) as response:
+            async with session.head(
+                proxy, allow_redirects=True, timeout=min(timeout, 10.0)
+            ) as response:
                 if response.status != 200:
+                    _TIKTOK_MISS_CACHE[video_id] = True
+                    return ProbeResult("none", "", "", page_url=url)
+                size = response.headers.get("Content-Length")
+                if size is not None and int(size) == 0:
+                    _TIKTOK_MISS_CACHE[video_id] = True
                     return ProbeResult("none", "", "", page_url=url)
                 final = str(response.url)
         except Exception as exc:  # noqa: BLE001 - proxy boundary
             log.debug("tnktok probe failed: %s", exc)
+            _TIKTOK_MISS_CACHE[video_id] = True
             return ProbeResult("none", "", "", page_url=url)
 
         parsed = URL(final)
         host = (parsed.host or "").lower()
-        is_cdn = host.endswith((".tiktokcdn.com", ".tiktokcdn-us.com"))
+        is_cdn = host == "tiktokcdn.com" or host.endswith(
+            (".tiktokcdn.com", ".tiktokcdn-us.com", "tiktokcdn-us.com", ".byteimg.com")
+        )
         if not is_cdn or "video_mp4" not in parsed.query_string:
+            _TIKTOK_MISS_CACHE[video_id] = True
             return ProbeResult("none", "", "", page_url=url)
         if not is_asset_url(final, allowed_domains, proxy_hosts):
+            _TIKTOK_MISS_CACHE[video_id] = True
             return ProbeResult("none", "", "", page_url=url)
         # tnktok proxy has no sensitivity metadata; avoid silent drops.
         return ProbeResult("video", "", "", (final,), "", False, url)
+
+
+class TikwmAdapter:
+    """Fallback proxy: tikwm public API returns play URLs or photo arrays."""
+
+    name = "tikwm"
+
+    async def probe(
+        self,
+        url: str,
+        allowed_domains: Iterable[str],
+        timeout: float,
+        proxy_hosts: Iterable[str] = (),
+        max_bytes: int = 8 * 1024 * 1024,
+    ) -> ProbeResult:
+        api = "https://tikwm.com/api/?" + urlencode({"url": url})
+        payload = await fetch_json(api, name="tikwm", timeout=min(timeout, 10.0))
+        data = (payload or {}).get("data") or {}
+        if not isinstance(data, dict):
+            return ProbeResult("none", "", "", page_url=url)
+
+        videos = [item for item in (data.get("hdplay"), data.get("play")) if isinstance(item, str)]
+        images = data.get("images")
+        pictures = (
+            [item for item in images if isinstance(item, str)] if isinstance(images, list) else []
+        )
+        media = tuple(
+            dict.fromkeys(
+                item
+                for item in (*videos, *pictures)
+                if is_asset_url(item, allowed_domains, proxy_hosts)
+            )
+        )
+        if not media:
+            return ProbeResult("none", "", "", page_url=url)
+        has_video = any(item in media for item in videos)
+        kind = (
+            "video" if has_video and len(media) == 1 else ("gallery" if len(media) > 1 else "image")
+        )
+        return ProbeResult(kind, "", "", media, "", False, url)
 
 
 class FacebedAdapter:

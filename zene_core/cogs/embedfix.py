@@ -23,6 +23,7 @@ from ..embedfix.proxy_adapters import (
     FxEmbedAdapter,
     IfxAdapter,
     TiktokProxyAdapter,
+    TikwmAdapter,
     XDirectAdapter,
 )
 from ..embedfix.router import route_for
@@ -74,7 +75,7 @@ def _compose_avatar_bytes(user_bytes: bytes, bot_bytes: bytes) -> bytes:
     # point is centre_distance + ring_radius; solve for a small edge gap.
     edge_gap = 6
     distance = size / 2 - ring.width / 2 - edge_gap  # 70 on a 256px base
-    offset = distance / (2 ** 0.5)
+    offset = distance / (2**0.5)
     centre = size / 2 + offset
     base.alpha_composite(
         ring,
@@ -103,6 +104,7 @@ class EmbedFixCog(commands.Cog):
                     "x-direct": XDirectAdapter(),
                     "ifx": IfxAdapter(),
                     "tnktok": TiktokProxyAdapter(),
+                    "tikwm": TikwmAdapter(),
                     "facebed": FacebedAdapter(),
                 }
             )
@@ -253,6 +255,36 @@ class EmbedFixCog(commands.Cog):
             )
             self._record_probe(started, ran)
             return best
+
+        # TikTok: tnktok is fast when alive, tikwm is a backup. Run together so
+        # a dead proxy cannot add its full timeout to every TikTok link.
+        if names[:2] == ("tnktok", "tikwm") and {"tnktok", "tikwm"} <= self.adapter_pool.keys():
+            tnktok, tikwm = await asyncio.gather(
+                self.adapter_pool["tnktok"].probe(
+                    ctx.canonical,
+                    allowed,
+                    self.cfg.media_timeout,
+                    proxy_hosts=proxies,
+                    max_bytes=self.cfg.media_max_bytes,
+                ),
+                self.adapter_pool["tikwm"].probe(
+                    ctx.canonical,
+                    allowed,
+                    self.cfg.media_timeout,
+                    proxy_hosts=proxies,
+                    max_bytes=self.cfg.media_max_bytes,
+                ),
+                return_exceptions=True,
+            )
+            ran = 2
+            results = [item for item in (tnktok, tikwm) if isinstance(item, ProbeResult)]
+            best = next((item for item in results if item.kind == "video"), None) or next(
+                (item for item in results if item.kind in {"gallery", "image"}), None
+            )
+            if best is not None:
+                self._record_probe(started, ran)
+                return best
+            names = ("meta",)
 
         for name in names:
             adapter = self.adapter_pool.get(name)

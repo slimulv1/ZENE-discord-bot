@@ -18,6 +18,8 @@ from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
 from zene_core.embedfix.proxy_adapters import (
     IfxAdapter,
+    TiktokProxyAdapter,
+    TikwmAdapter,
     extract_item_url,
     facebed_url,
     ig_shortcode,
@@ -238,6 +240,61 @@ class IfxFailFastTests(unittest.IsolatedAsyncioTestCase):
                 proxy_hosts={"ifx.up.railway.app"},
             )
         self.assertEqual(len(session.calls), 1)
+
+
+class TiktokAdapterTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        from zene_core.embedfix import proxy_adapters
+
+        proxy_adapters._TIKTOK_MISS_CACHE.clear()
+
+    def test_video_id_accepts_photo_and_reel(self) -> None:
+        self.assertEqual(
+            tiktok_video_id("https://www.tiktok.com/@a/photo/1234567890"), "1234567890"
+        )
+        self.assertEqual(tiktok_video_id("https://www.tiktok.com/@a/reel/1234567890"), "1234567890")
+
+    async def test_zero_length_proxy_response_is_rejected(self) -> None:
+        class Response:
+            status = 200
+            headers: ClassVar[dict[str, str]] = {"Content-Length": "0"}
+            url = "https://v16.tiktokcdn-us.com/x?video_mp4=1"
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+        class Session:
+            def head(self, url, **kwargs):
+                return Response()
+
+        with patch(
+            "zene_core.embedfix.proxy_adapters.get_session",
+            new=AsyncMock(return_value=Session()),
+        ):
+            result = await TiktokProxyAdapter().probe(
+                "https://www.tiktok.com/@a/video/1234567890",
+                {"tiktok.com"},
+                10.0,
+                proxy_hosts={"offload.tnktok.com"},
+            )
+        self.assertEqual(result.kind, "none")
+
+    async def test_tikwm_returns_play_url(self) -> None:
+        payload = {"data": {"play": "https://v16.tiktokcdn-us.com/x?video_mp4=1"}}
+        with patch(
+            "zene_core.embedfix.proxy_adapters.fetch_json", new=AsyncMock(return_value=payload)
+        ):
+            result = await TikwmAdapter().probe(
+                "https://www.tiktok.com/@a/video/1234567890",
+                {"tiktok.com"},
+                10.0,
+                proxy_hosts={"offload.tnktok.com"},
+            )
+        self.assertEqual(result.kind, "video")
+        self.assertEqual(len(result.media_urls), 1)
 
 
 class RouterTests(unittest.TestCase):

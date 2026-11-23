@@ -12,10 +12,10 @@ ROUTES: dict[str, tuple[str, ...]] = {
     "instagram.com": ("ifx", "meta"),
     "facebook.com": ("facebed", "meta"),
     "fb.com": ("facebed", "meta"),
-    "tiktok.com": ("tnktok", "meta"),
+    "tiktok.com": ("tnktok", "tikwm", "meta"),
 }
 
-PROXY_ADAPTERS = frozenset({"fxtwitter", "x-direct", "ifx", "facebed", "tnktok"})
+PROXY_ADAPTERS = frozenset({"fxtwitter", "x-direct", "ifx", "facebed", "tnktok", "tikwm"})
 
 
 def route_for(url: str, use_proxies: bool = True) -> tuple[str, ...]:
