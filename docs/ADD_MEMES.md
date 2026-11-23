@@ -219,3 +219,35 @@ hoặc chỉ dùng trong kênh đã bật NSFW, và đánh dấu kênh đó tron
 Nếu JSON lỗi, bạn có thể xoá/đổi tên `zene/data/memes.json`: bot sẽ tự fallback
 sang `command_link.xlsx` + `extra_commands.json` (nội dung text vẫn cần JSON,
 nên tốt nhất là sửa JSON thay vì xoá).
+
+---
+
+## 7. Sửa communicate.py (legacy)
+
+`zene/communicate.py` là cog cũ, `run.py` **không nạp** nó. Chỉ sửa khi bảo trì bản
+rollback. Với meme thường, dùng các mục trên.
+
+- Trigger tự động: trong `on_message`, bot lấy `cmd = message.content.lower()` rồi
+  chạy các nhánh `if cmd == "..."` / `if "..." in cmd`. Thêm nhánh mới:
+
+  ```python
+  if cmd == "chào bot":
+      await message.channel.send("Chào bạn, hôm nay bot khỏe!")
+  ```
+
+- Lệnh prefix: thêm hàm có `@commands.command()` (mẫu: `bonk`, `auzam`) → bot có
+  lệnh `z/<tên hàm>`.
+- Ảnh/video: sửa `command_link.xlsx` hoặc `extra_commands.json`, không cần đụng Python.
+- Kiểm tra rồi restart process:
+
+  ```bash
+  python -m ruff check zene/communicate.py
+  python -m compileall -q zene/communicate.py
+  python run.py
+  ```
+
+**Cẩn thận:** đừng bật `zene.communicate` cùng `zene_core.cogs.conversation` (trùng
+tên `avt`, `haha`, `tv`, `bonk`…). Để dùng cog cũ, bỏ `zene_core.cogs.conversation`
+khỏi `ZENE_REQUIRED_EXTENSIONS` và thêm `zene.communicate` vào
+`ZENE_OPTIONAL_EXTENSIONS` trong `.env`. Cog cũ đọc Excel mỗi tin nhắn, ghi chung
+`cache.jpg` và có `except:` rộng — chỉ dùng để thử/rollback.

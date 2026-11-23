@@ -354,45 +354,8 @@ Nói ngắn gọn: sửa file `zene/data/memes.json`, kiểm tra lại bằng
 (`Ctrl+C` rồi chạy lại `python run.py`, hoặc `systemctl restart zene-bot`).
 Lệnh `z/restart` chỉ tạo lại bot trong cùng process nên **chưa đủ** để nạp JSON mới.
 
-### 🧟 Nếu bạn vẫn muốn sửa `zene/communicate.py`
-
-`zene/communicate.py` là cog **legacy**. Khi chạy `run.py` nó **không được nạp** —
-nội dung meme đã chuyển sang `memes.json` ở trên. Nếu chỉ muốn thêm meme, đừng sửa
-file này. Còn nếu bạn đang bảo trì bản cũ hoặc thử nghiệm:
-
-1. Mở `zene/communicate.py`.
-2. Phản hồi tự động nằm trong hàm `on_message`: bot lấy
-   `cmd = message.content.lower()` rồi đi qua các nhánh `if cmd == "..."` và
-   `if "..." in cmd`. Thêm nhánh mới theo mẫu:
-
-   ```python
-   if cmd == "chào bot":
-       await message.channel.send("Chào bạn, hôm nay bot khỏe!")
-   ```
-
-3. Lệnh prefix nằm ở các hàm có `@commands.command()` (ví dụ `bonk`, `auzam`).
-   Thêm hàm mới cùng kiểu, rồi bot sẽ có thêm lệnh `z/<tên hàm>`.
-4. Mapping ảnh/video thì sửa `command_link.xlsx` hoặc `extra_commands.json`,
-   **không cần đụng Python**.
-5. Kiểm tra trước khi chạy:
-
-   ```bash
-   python -m ruff check zene/communicate.py
-   python -m compileall -q zene/communicate.py
-   ```
-
-6. Tắt bot rồi bật lại (`python run.py` / `systemctl restart zene-bot`).
-
-**Cẩn thận:**
-
-- Đừng bật `zene.communicate` cùng lúc với `zene_core.cogs.conversation` — chúng
-  trùng tên lệnh (`avt`, `haha`, `tv`, `bonk`…), bot sẽ báo lỗi khi nạp cog.
-- Để dùng `communicate.py` với bản mới, trong `.env` bỏ
-  `zene_core.cogs.conversation` khỏi `ZENE_REQUIRED_EXTENSIONS` rồi thêm
-  `zene.communicate` vào `ZENE_OPTIONAL_EXTENSIONS`.
-- Cog cũ đọc Excel trên **mọi tin nhắn**, ghi chung `cache.jpg` và có vài
-  `except:` quá rộng. Chỉ nên dùng để rollback/thử nghiệm, không khuyến khích cho
-  production 24/7.
+> 🧟 Muốn sửa cog legacy `zene/communicate.py`? Xem ngắn gọn ở
+> **[docs/ADD_MEMES.md — mục 7](docs/ADD_MEMES.md#7-sửa-communicatepy-legacy)**.
 
 ---
 
