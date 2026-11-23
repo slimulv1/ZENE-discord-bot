@@ -39,6 +39,7 @@ class EmbedFixCog(commands.Cog):
         self.cache: TTLCache = TTLCache(maxsize=512, ttl=max(1, cfg.media_cache_ttl))
         self.video_cache: TTLCache = TTLCache(maxsize=512, ttl=max(60, cfg.media_direct_video_ttl))
         self.cooldown = commands.CooldownMapping.from_cooldown(1, 3.0, commands.BucketType.user)
+        self._webhooks: dict[int, discord.Webhook] = {}
         self.adapter_pool: dict[str, object] = {"meta": MetaAdapter()}
         if cfg.media_use_proxies:
             self.adapter_pool.update(
@@ -211,17 +212,51 @@ class EmbedFixCog(commands.Cog):
         )
         if self.cfg.media_suppress:
             await self._suppress(ctx.message)
-        await ctx.message.channel.send(view=view)
+
+        impersonated = False
+        if self.cfg.media_mode == "impersonate":
+            impersonated = await self._send_impersonated(ctx, view)
+        if not impersonated:
+            await ctx.message.channel.send(view=view)
         self.bot.stats["embedfix_ok"] += 1
         if result.kind in {"video", "gallery"}:
             self.bot.stats["embedfix_video_ok"] += 1
 
-        if self.cfg.media_mode == "replace":
+        if self.cfg.media_mode == "replace" or impersonated:
             await self._replace(ctx.message)
 
     def _nsfw_allowed(self, ctx: LinkContext, result: ProbeResult) -> bool:
         sensitive = result.nsfw is True or (result.nsfw is None and self.cfg.media_strict_nsfw)
         return not sensitive or bool(ctx.message.channel.is_nsfw())
+
+    async def _get_webhook(self, channel) -> discord.Webhook:
+        cached = self._webhooks.get(channel.id)
+        if cached is not None:
+            return cached
+        if self.cfg.media_webhook_url:
+            webhook = discord.Webhook.from_url(self.cfg.media_webhook_url, client=self.bot)
+        else:
+            webhook = await channel.create_webhook(name="zene-embed")
+        self._webhooks[channel.id] = webhook
+        return webhook
+
+    async def _send_impersonated(self, ctx: LinkContext, view) -> bool:
+        """Send as the original author via webhook, then remove their message."""
+        message = ctx.message
+        author = message.author
+        try:
+            webhook = await self._get_webhook(message.channel)
+            await webhook.send(
+                username=author.display_name,
+                avatar_url=author.display_avatar.url,
+                view=view,
+                wait=True,
+            )
+            self.bot.stats["embedfix_impersonated"] += 1
+            return True
+        except (discord.HTTPException, discord.Forbidden, TypeError, ValueError) as exc:
+            log.warning("impersonate thất bại, gửi thường: %s", exc)
+            return False
 
     async def _suppress(self, message: discord.Message) -> None:
         guild = message.guild

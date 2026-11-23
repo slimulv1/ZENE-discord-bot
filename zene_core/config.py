@@ -147,6 +147,7 @@ class Config:
     media_links_enabled: bool = False
     media_allowed_domains: frozenset[str] = frozenset()
     media_mode: str = "reply"
+    media_webhook_url: str = ""
     media_max_links: int = 3
     media_max_bytes: int = 8 * 1024 * 1024
     media_timeout: float = 25.0
@@ -244,9 +245,10 @@ class Config:
             ),
             media_mode=(
                 _clean(env.get("ZENE_MEDIA_MODE")).lower()
-                if _clean(env.get("ZENE_MEDIA_MODE")).lower() in {"reply", "replace"}
+                if _clean(env.get("ZENE_MEDIA_MODE")).lower() in {"reply", "replace", "impersonate"}
                 else "reply"
             ),
+            media_webhook_url=_clean(env.get("ZENE_MEDIA_WEBHOOK_URL")),
             media_max_links=max(1, _env_int(env, "ZENE_MEDIA_MAX_LINKS", 3)),
             media_max_bytes=max(1024, _env_int(env, "ZENE_MEDIA_MAX_BYTES", 8 * 1024 * 1024)),
             media_timeout=max(5.0, _env_float(env, "ZENE_MEDIA_TIMEOUT", 25.0)),

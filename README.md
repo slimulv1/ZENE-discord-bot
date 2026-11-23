@@ -429,6 +429,20 @@ Nếu chỉ muốn hiển thị thumbnail, đổi `ZENE_MEDIA_USE_PROXIES=false`
 Bot gửi ảnh/video bằng **Discord Components V2** (`MediaGallery`). Nếu có nhiều ảnh
 trong một bài, bot gộp tối đa 10 ảnh vào cùng một gallery.
 
+### Bot "đóng vai" bạn
+
+Mặc định bot reply bên dưới tin nhắn link. Để bot gửi lại **mang tên và avatar của bạn**:
+
+```
+ZENE_MEDIA_MODE=impersonate
+```
+
+Bot cần thêm quyền **Manage Webhooks** và **Manage Messages** (mời lại bot bằng link trong phần tạo bot). Khi đó bot tạo một webhook mang tên/avatar bạn, gửi embed đã sửa rồi xoá tin nhắn link gốc.
+
+> Discord **không cho** đặt message mới vào đúng vị trí tin nhắn cũ — message mới vẫn nằm ở cuối kênh, nhưng hiển thị tên/avatar của bạn nên trông như đã thay thế.
+
+Có thể dán sẵn webhook của riêng bạn qua `ZENE_MEDIA_WEBHOOK_URL` nếu bot không có quyền tạo webhook.
+
 ### Điều khiển từng link
 
 Đặt ký tự trước link:

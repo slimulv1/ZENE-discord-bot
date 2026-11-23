@@ -28,6 +28,8 @@ class ConfigTests(unittest.TestCase):
             {"DISCORD_TOKEN": "x" * 40, "ZENE_MEDIA_AUTO_TRANSLATE": "false"}
         )
         self.assertFalse(no_translate.media_auto_translate)
+        impersonate = Config.from_env({"DISCORD_TOKEN": "x" * 40, "ZENE_MEDIA_MODE": "impersonate"})
+        self.assertEqual(impersonate.media_mode, "impersonate")
 
 
 class RouterTests(unittest.TestCase):

@@ -47,7 +47,10 @@ ZENE_DIGEST_PING=false
 # Bật sẵn: copy file này thành .env là embed link social media chạy ngay.
 ZENE_MEDIA_LINKS_ENABLED=true
 ZENE_MEDIA_ALLOWED_DOMAINS=x.com,instagram.com,facebook.com,tiktok.com,youtube.com
+# reply = reply bên dưới; replace = xoá tin nhắn gốc; impersonate = gửi bằng webhook mang tên/avatar người gửi
 ZENE_MEDIA_MODE=reply
+# Tuỳ chọn: webhook có sẵn nếu bot không có quyền Manage Webhooks
+ZENE_MEDIA_WEBHOOK_URL=
 ZENE_MEDIA_MAX_LINKS=3
 ZENE_MEDIA_MAX_BYTES=8388608
 ZENE_MEDIA_TIMEOUT=25
