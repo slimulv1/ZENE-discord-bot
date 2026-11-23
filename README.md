@@ -12,7 +12,8 @@
   <br><sub>📄 PolyForm Noncommercial 1.0.0 · dùng/sửa thoải mái, không bán lợi nhuận</sub>
 </p>
 
-> **💡 Mới dùng?** Đọc mục 1 (lệnh) → mục 3 (tạo bot) → mục 1 (cài đặt). Có lỗi thì nhảy tới mục 7.
+> **💡 Mới dùng?** Làm mục 3 (tạo bot) trước → rồi mục 1 (cài/chạy). Trên Windows xem
+> [hướng dẫn chi tiết](docs/WINDOWS_SETUP.md). Có lỗi thì nhảy tới mục 7.
 
 ---
 
@@ -46,8 +47,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -Command ".\.venv\Scripts\python.e
 powershell -NoProfile -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
-`start.ps1` sẽ **hỏi token ẩn + ID Discord** và lưu vào biến môi trường USER — bạn không
-phải dán lại lệnh dài. Muốn bot tự chạy khi đăng nhập, chạy **1 lần**:
+`start.ps1` sẽ **hỏi token ẩn + ID Discord** và chỉ dùng trong phiên PowerShell hiện tại.
+Muốn lưu lại và bot tự chạy khi đăng nhập, chạy **1 lần**:
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-autostart.ps1
@@ -169,14 +170,16 @@ Toàn bộ nội dung này nằm trong một file duy nhất: `zene/data/memes.j
 ## 🆕 3. Tạo bot trên Discord (nếu chưa có)
 
 1. Vào <https://discord.com/developers/applications> → bấm **New Application**, đặt tên.
-2. Vào tab **Bot** → bấm **Reset Token** → copy token. Token chỉ hiện lúc này,
-   dán ngay vào file `.env` nhé.
+2. Vào tab **Bot** → bấm **Reset Token** → copy token. Token chỉ hiện lúc này.
+   Trên Windows, dán token khi `start.ps1` / `install-autostart.ps1` hỏi (không cần sửa `.env`).
 3. Vẫn ở tab Bot, bật **Message Content Intent**. Nếu không bật, bot sẽ không đọc
    được lệnh `z/...`.
 4. Vào **OAuth2 → URL Generator**:
    - Tick ô `bot` và `applications.commands` (ô thứ hai để có lệnh `/`).
    - Trong phần Bot Permissions, tick: *Send Messages*, *Embed Links*,
-     *Attach Files*, *Read Message History*, *Use Slash Commands*.
+     *Attach Files*, *Read Message History*, *Manage Messages*, *Use Slash Commands*.
+     Muốn bot xoá link và gửi lại mang tên bạn, tick thêm *Manage Webhooks* — xem
+     [2 link mời sẵn](docs/WINDOWS_SETUP.md#33-mời-bot-vào-server).
 5. Copy cái link hiện ra, mở trình duyệt, chọn server của bạn → **Add Bot**.
 6. Vào settings kênh định dùng `code`/`idol`/`hen...` → bật **NSFW**.
 7. Lấy ID của bạn: bật **Developer Mode** trong Discord, chuột phải vào tên bạn
@@ -291,7 +294,7 @@ Mấy cái nâng cao (không cần đụng nếu mới dùng):
 | `ZENE_MEMBERS_INTENT=` | Bật khi bạn cần quyền thành viên; mặc định `false`. |
 | `ZENE_IGNORE_BOTS=` | `true` để bot không phản hồi bot khác (tránh tự chọc nhau). |
 | `ZENE_TRIGGER_COOLDOWN=` | Mỗi người phải đợi bao nhiêu giây trước khi lại gửi meme. Mặc định `1.5`. |
-| `ZENE_MAX_RESTARTS=` | Tối đa 10 lần tự khởi động lại rồi dừng, tránh lặp vô hạn. |
+| `ZENE_MAX_RESTARTS=` | Tối đa 10 lần tự restart **trong cùng process**. Nếu dùng script Windows `zene-autostart.ps1`, tiến trình được khởi động lại vô hạn bởi Scheduled Task. |
 | `ZENE_DIGEST_CHANNEL_ID=` | ID kênh nhận bản tin âm lịch + giá xăng mỗi sáng. `0` là tắt. |
 | `ZENE_DIGEST_HOUR=` / `ZENE_DIGEST_MINUTE=` | Giờ phát bản tin, mặc định 6:30. |
 | `ZENE_DIGEST_TIMEZONE=` | Múi giờ, mặc định `Asia/Ho_Chi_Minh`. |

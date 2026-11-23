@@ -4,8 +4,17 @@ Setup MỘT LẦN cho Windows autostart:
 2. Đăng ký Scheduled Task chạy zene-autostart.ps1 mỗi lần đăng nhập.
 
 Chạy: powershell -NoProfile -ExecutionPolicy Bypass -File .\install-autostart.ps1
+Đổi token/ID: thêm -Force để hỏi lại và ghi đè giá trị cũ.
 #>
+[CmdletBinding()]
+param([switch]$Force)
+
 $ErrorActionPreference = 'Stop'
+
+if ($Force) {
+    $env:DISCORD_TOKEN = $null
+    $env:ZENE_OWNER_IDS = $null
+}
 
 if (-not $env:DISCORD_TOKEN) {
     $secure = Read-Host -AsSecureString 'DISCORD_TOKEN bot (ẩn khi gõ)'

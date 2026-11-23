@@ -3,9 +3,18 @@ Khởi động ZENE bot trên Windows.
 
 Token KHÔNG được lưu trong file này. Khi chạy, script sẽ hỏi token ẩn và ID Discord
 (hoặc dùng các biến $env:DISCORD_TOKEN / $env:ZENE_OWNER_IDS nếu đã đặt sẵn).
+Thêm -Force để bỏ qua giá trị cũ và hỏi lại.
 #>
+[CmdletBinding()]
+param([switch]$Force)
+
 Set-Location -LiteralPath $PSScriptRoot
 $ErrorActionPreference = 'Stop'
+
+if ($Force) {
+    $env:DISCORD_TOKEN = $null
+    $env:ZENE_OWNER_IDS = $null
+}
 
 if (-not $env:DISCORD_TOKEN) {
     $secure = Read-Host -AsSecureString 'DISCORD_TOKEN (sẽ không hiển thị khi gõ)'

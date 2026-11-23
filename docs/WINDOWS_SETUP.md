@@ -25,8 +25,9 @@ Có **2 cách chạy**, chọn 1:
 | **Thử nghiệm** | Lần đầu, muốn thấy log ngay trong terminal | `.\start.ps1` |
 | **24/7** | Sau khi test ổn, muốn bot tự chạy mỗi lần đăng nhập | `.\install-autostart.ps1` (chạy 1 lần) |
 
-Cả hai dùng **cùng một cấu hình** lưu trong biến môi trường người dùng Windows —
-bạn **không phải gõ lại lệnh dài hay dán lại token** mỗi lần.
+`start.ps1` giữ token/ID **trong phiên PowerShell hiện tại** (đóng cửa sổ là mất).
+`install-autostart.ps1` thì lưu vào **biến môi trường USER** để dùng mãi về sau —
+sau khi chạy setup một lần, bạn **không phải gõ lại lệnh dài hay dán lại token**.
 
 ---
 
@@ -70,11 +71,12 @@ Vào **OAuth2 → URL Generator**, tick `bot` và `applications.commands`, rồi
 **Link mời cơ bản** (memes, âm lịch, dịch, giá xăng, sửa link thành ảnh/video):
 
 ```
-https://discord.com/oauth2/authorize?client_id=1574258169528713246&permissions=2147608576&scope=bot%20applications.commands
+https://discord.com/oauth2/authorize?client_id=1574258169528713246&permissions=2147600384&scope=bot%20applications.commands
 ```
 
-**Link mời đầy đủ** (thêm *Manage Webhooks* + *Manage Messages*) — dùng khi bạn muốn
-bot **xoá tin nhắn link của bạn và gửi lại mang tên/avatar bạn**:
+**Link mời đầy đủ** (thêm *Manage Webhooks* + *Manage Messages* so với bản cơ bản) —
+dùng khi bạn muốn bot **xoá tin nhắn link của bạn và gửi lại mang tên/avatar bạn**.
+Vì script mặc định dùng chế độ `impersonate`, **người mới nên dùng luôn link này**:
 
 ```
 https://discord.com/oauth2/authorize?client_id=1574258169528713246&permissions=2684479488&scope=bot%20applications.commands
@@ -127,11 +129,13 @@ Script sẽ hỏi:
 1. `DISCORD_TOKEN` — dán token đã copy ở **3.1** (ký tự được ẩn khi gõ).
 2. `ZENE_OWNER_IDS` — dán ID bạn đã copy ở **3.2** (phải là chuỗi số).
 
-Sau đó bot chạy, bạn sẽ thấy dòng:
+Sau đó bot chạy. Log được ghi dạng JSON, bạn sẽ thấy dòng tương tự:
 
 ```
-READY as ZENE#8150 | guilds=1
+{"level": "INFO", "message": "READY as ZENE#8150 | guilds=1", ...}
 ```
+
+Trong đó `guilds` là **số server bot đang ở** — `guilds=1` nghĩa là bot đã vào đúng 1 server.
 
 **Kiểm tra nhanh:**
 
@@ -142,7 +146,8 @@ READY as ZENE#8150 | guilds=1
   - Gõ `siuu` → hiện video meme.
   - Gửi một link X/Instagram/Facebook/TikTok → bot phản hồi ảnh/video.
 
-Giữ nguyên cửa sổ PowerShell này nếu bạn chỉ muốn test. Đóng cửa sổ = bot tắt.
+Giữ nguyên cửa sổ PowerShell này nếu bạn chỉ muốn test. Nhấn **Ctrl+C** để tắt bot
+(dọn dẹp an toàn), hoặc đóng cửa sổ.
 
 ---
 
@@ -160,12 +165,15 @@ Nếu muốn đổi:
 | Thay đổi cụm domain xử lý | `ZENE_MEDIA_ALLOWED_DOMAINS` | `x.com,instagram.com,...` |
 | Tắt tự nạp meme | `ZENE_RELOAD_ON_CHANGE` | `false` |
 
-Có 2 cách đặt:
+Cách đặt đúng khi dùng script Windows:
 
-- **Cách script (khuyến nghị)**: sửa giá trị trong `start.ps1` hoặc `zene-autostart.ps1`,
-  rồi chạy lại script / restart task.
-- **Cách file cấu hình**: `copy config.example.txt .env` rồi mở `.env` sửa. File này
-  đã có trong `.gitignore`, **không bao giờ commit**.
+- **Khuyến nghị**: sửa giá trị trong `start.ps1` (chạy tay) hoặc `zene-autostart.ps1`
+  (chạy 24/7), rồi chạy lại script / restart task.
+- **Không dùng `.env` cho 3 biến `ZENE_MEDIA_*` ở trên**: script đã export chúng trong
+  phiên chạy, nên bot sẽ ưu tiên giá trị của script và bỏ qua giá trị trong `.env`.
+- `.env` vẫn dùng được cho các biến **không bị script export**, ví dụ
+  `ZENE_RELOAD_ON_CHANGE`: `copy config.example.txt .env` rồi mở sửa. File này đã có
+  trong `.gitignore`, **không bao giờ commit**.
 
 ---
 
@@ -183,13 +191,17 @@ Script sẽ:
 - đăng ký Scheduled Task tên **`ZENE Bot`**, chạy `zene-autostart.ps1` mỗi lần bạn **đăng nhập**;
 - tự khởi động lại bot sau 10 giây nếu process bot thoát.
 
+> `install-autostart.ps1` **chỉ đăng ký task**, chưa chạy bot ngay. Để bot online luôn,
+> chạy `Start-ScheduledTask -TaskName 'ZENE Bot'` hoặc đăng xuất rồi đăng nhập lại.
+
 Quản lý:
 
 ```powershell
 Stop-ScheduledTask -TaskName 'ZENE Bot'                                      # tạm dừng
 Start-ScheduledTask -TaskName 'ZENE Bot'                                     # chạy lại
 Get-ScheduledTask -TaskName 'ZENE Bot' | Select-Object State, TaskName        # xem trạng thái
-powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1 # gỡ vĩnh viễn
+powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1 # gỡ task (giữ token)
+powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1 -ClearSecrets  # gỡ cả token/ID
 ```
 
 Log chạy nền: `logs\autostart.log` (không chứa token).
@@ -209,7 +221,7 @@ Log chạy nền: `logs\autostart.log` (không chứa token).
 | Triệu chứng | Nguyên nhân | Cách sửa |
 |---|---|---|
 | `PrivilegedIntentsRequired` / log dừng ngay | Chưa bật Message Content Intent | Developer Portal → tab Bot → bật công tắc, restart bot |
-| `LoginFailure` | Token sai/cũ | Reset Token, chạy lại `start.ps1` hoặc `install-autostart.ps1` để cập nhật |
+| `LoginFailure` | Token sai/cũ | Reset Token rồi chạy lại script có `-Force` (xem mục 9) |
 | `Không có thông tin` / bot không trả lời `z/...` | Prefix sai hoặc intent tắt | Kiểm tra Message Content Intent; prefix mặc định `z/` |
 | Không thấy lệnh `/` | Thiếu scope `applications.commands` | Mời lại bot bằng link ở **3.3**, đợi vài phút |
 | Gửi link nhưng bot ghi `403 Missing Permissions` | Bot thiếu Manage Webhooks / Manage Messages | Mời lại bằng **link đầy đủ** ở **3.3** |
@@ -226,12 +238,24 @@ Nếu vẫn lỗi, xem log chi tiết: `logs\zene.log` và `logs\autostart.log`.
 ## 9. Bảo mật và cập nhật
 
 - **Token là bí mật.** Nếu từng dán token vào chat/log, hãy **Reset Token** ngay trong
-  Developer Portal rồi cập nhật lại bằng script.
+  Developer Portal. Vì biến USER đã được lưu từ trước, chạy lại script **không tự hỏi lại** —
+  phải thêm `-Force`:
+
+  ```powershell
+  # Chạy tay (chỉ áp dụng cho cửa sổ hiện tại)
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\start.ps1 -Force
+
+  # Đã setup autostart: cập nhật token/ID rồi khởi động lại task
+  powershell -NoProfile -ExecutionPolicy Bypass -File .\install-autostart.ps1 -Force
+  Stop-ScheduledTask -TaskName 'ZENE Bot'
+  Start-ScheduledTask -TaskName 'ZENE Bot'
+  ```
 - Không commit file `.env`; repo đã có `.gitignore` chặn `.env`, `.env.*`, cookie, v.v.
 - Cập nhật bot:
   ```powershell
   cd "C:\Users\slimu\Downloads\Zene Bot\ZENE-discord-bot"
   git pull
+  powershell -NoProfile -ExecutionPolicy Bypass -Command ".\.venv\Scripts\python.exe -m pip install -r requirements.txt"
   Stop-ScheduledTask -TaskName 'ZENE Bot'
   Start-ScheduledTask -TaskName 'ZENE Bot'
   ```
