@@ -389,22 +389,7 @@ tests/                  unit test
 
 ---
 
-## 📄 10. Bản quyền
-
-Repo dùng giấy phép **PolyForm Noncommercial 1.0.0** (mã SPDX: `PolyForm-Noncommercial-1.0.0`).
-
-Nói đơn giản:
-
-- ✅ Bạn được **dùng, sửa, fork, chia sẻ** cho mục đích không kiếm lời: cá nhân, học tập, giải trí, server cộng đồng…
-- ✅ Khi phát hành lại, giữ dòng `Required Notice` và file [LICENSE](LICENSE).
-- ❌ **Không được bán bot**, thu tiền cung cấp dịch vụ bot, hoặc đưa vào sản phẩm thương mại.
-- Muốn dùng thương mại → liên hệ chủ repo để xin giấy phép riêng.
-
-Toàn văn nằm trong file [LICENSE](LICENSE). Đây **không phải** giấy phép "open source" theo OSI vì có điều kiện phi thương mại.
-
----
-
-## 🖼️ 11. Tự động sửa embed link social media
+## 🖼️ 10. Tự động sửa embed link social media
 
 Bật tính năng này (mặc định **tắt**) bằng cách thêm vào `.env`:
 
@@ -436,3 +421,18 @@ Bot sẽ dùng API công khai/proxy embed để lấy URL mp4 trực tiếp rồ
   <br>
   <sub>Làm bằng 🐾, chạy bằng ☕, giữ bằng 🩺 tự hồi phục.</sub>
 </p>
+
+---
+
+## 📄 Bản quyền
+
+Repo dùng giấy phép **PolyForm Noncommercial 1.0.0** (mã SPDX: `PolyForm-Noncommercial-1.0.0`).
+
+Nói đơn giản:
+
+- ✅ Bạn được **dùng, sửa, fork, chia sẻ** cho mục đích không kiếm lời: cá nhân, học tập, giải trí, server cộng đồng…
+- ✅ Khi phát hành lại, giữ dòng `Required Notice` và file [LICENSE](LICENSE).
+- ❌ **Không được bán bot**, thu tiền cung cấp dịch vụ bot, hoặc đưa vào sản phẩm thương mại.
+- Muốn dùng thương mại → liên hệ chủ repo để xin giấy phép riêng.
+
+Toàn văn nằm trong file [LICENSE](LICENSE). Đây **không phải** giấy phép "open source" theo OSI vì có điều kiện phi thương mại.
