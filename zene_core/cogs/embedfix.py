@@ -7,6 +7,7 @@ import contextlib
 import logging
 import time
 from collections.abc import Iterable
+from io import BytesIO
 
 import discord
 from cachetools import TTLCache
@@ -26,8 +27,44 @@ from ..embedfix.proxy_adapters import (
 )
 from ..embedfix.router import route_for
 from ..embedfix.views import build_view
+from ..net import get_session
 
 log = logging.getLogger(__name__)
+
+
+def _compose_avatar_bytes(user_bytes: bytes, bot_bytes: bytes) -> bytes:
+    """Composite the bot avatar over the user avatar at the status-dot corner.
+
+    Discord's status dot is ~30% of the chat avatar diameter; the requested
+    badge is 125% of that, i.e. 37.5% of the base. Everything runs in-memory.
+    """
+    from PIL import Image, ImageDraw
+
+    size = 256
+    badge_size = 96  # 37.5% of 256
+
+    def circular(image: Image.Image, target: int) -> Image.Image:
+        image = image.convert("RGBA").resize((target, target), Image.Resampling.LANCZOS)
+        mask = Image.new("L", (target, target), 0)
+        ImageDraw.Draw(mask).ellipse((0, 0, target - 1, target - 1), fill=255)
+        image.putalpha(mask)
+        return image
+
+    with Image.open(BytesIO(user_bytes)) as image:
+        base = circular(image, size)
+    with Image.open(BytesIO(bot_bytes)) as image:
+        badge = circular(image, badge_size)
+
+    border = 4
+    ring = Image.new("RGBA", (badge_size + border * 2, badge_size + border * 2), (0, 0, 0, 0))
+    ImageDraw.Draw(ring).ellipse((0, 0, ring.width - 1, ring.height - 1), fill=(43, 45, 49, 255))
+    ring.alpha_composite(badge, (border, border))
+
+    margin = 4
+    base.alpha_composite(ring, (size - ring.width - margin, size - ring.height - margin))
+    out = BytesIO()
+    base.save(out, format="PNG")
+    return out.getvalue()
 
 
 class EmbedFixCog(commands.Cog):
@@ -322,23 +359,57 @@ class EmbedFixCog(commands.Cog):
         self._webhooks[channel.id] = webhook
         return webhook
 
+    async def _avatar_bytes(self, url: str) -> bytes:
+        session = await get_session()
+        async with session.get(url, timeout=10) as response:
+            response.raise_for_status()
+            return await response.read()
+
     async def _send_impersonated(self, ctx: LinkContext, view) -> bool:
-        """Send as the original author via webhook, then remove their message."""
+        """Send as the author with the bot badge on their avatar, then remove theirs."""
         message = ctx.message
         author = message.author
+        guild = message.guild
+        can_create_webhook = (
+            guild is None or message.channel.permissions_for(guild.me).manage_webhooks
+        )
+        temp_webhook: discord.Webhook | None = None
+
         try:
-            webhook = await self._get_webhook(message.channel)
-            await webhook.send(
-                username=author.display_name,
-                avatar_url=author.display_avatar.url,
-                view=view,
-                wait=True,
-            )
+            composed: bytes | None = None
+            if can_create_webhook and self.bot.user is not None:
+                try:
+                    user_bytes = await self._avatar_bytes(author.display_avatar.url)
+                    bot_bytes = await self._avatar_bytes(self.bot.user.display_avatar.url)
+                    composed = await asyncio.to_thread(_compose_avatar_bytes, user_bytes, bot_bytes)
+                except Exception as exc:  # noqa: BLE001 - avatar is cosmetic
+                    log.debug("không ghép được badge avatar: %s", exc)
+
+            if composed is not None:
+                # Webhook.send only accepts an avatar URL, so a temporary
+                # webhook with the composed bytes is the per-message solution.
+                temp_webhook = await message.channel.create_webhook(
+                    name="zene-embed", avatar=composed
+                )
+                await temp_webhook.send(username=author.display_name, view=view, wait=True)
+                self.bot.stats["embedfix_avatar_badge"] += 1
+            else:
+                webhook = await self._get_webhook(message.channel)
+                await webhook.send(
+                    username=author.display_name,
+                    avatar_url=author.display_avatar.url,
+                    view=view,
+                    wait=True,
+                )
             self.bot.stats["embedfix_impersonated"] += 1
             return True
         except (discord.HTTPException, discord.Forbidden, TypeError, ValueError) as exc:
             log.warning("impersonate thất bại, gửi thường: %s", exc)
             return False
+        finally:
+            if temp_webhook is not None:
+                with contextlib.suppress(discord.HTTPException, discord.Forbidden):
+                    await temp_webhook.delete()
 
     async def _suppress(self, message: discord.Message) -> None:
         guild = message.guild

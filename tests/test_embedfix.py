@@ -10,7 +10,7 @@ from zene_core import content
 from zene_core.assets import AssetRegistry
 from zene_core.avwiki import _guess_source, looks_vietnamese
 from zene_core.cogs.conversation import ConversationCog
-from zene_core.cogs.embedfix import EmbedFixCog
+from zene_core.cogs.embedfix import EmbedFixCog, _compose_avatar_bytes
 from zene_core.config import Config
 from zene_core.content import fresh_commands, prepare_reload, reload_data
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
@@ -124,6 +124,25 @@ class ReloadDataTests(unittest.TestCase):
             content.ANXIN_STORIES[:] = original["ANXIN_STORIES"]
             content.CODE_STORIES[:] = original["CODE_STORIES"]
             content.FOLO_TEXT = original["FOLO_TEXT"]
+
+
+class AvatarBadgeTests(unittest.TestCase):
+    def test_badge_is_composited_at_bottom_right(self) -> None:
+        from io import BytesIO
+
+        from PIL import Image
+
+        def solid(color: str) -> bytes:
+            out = BytesIO()
+            Image.new("RGB", (64, 64), color).save(out, format="PNG")
+            return out.getvalue()
+
+        result = _compose_avatar_bytes(solid("red"), solid("blue"))
+        self.assertTrue(result.startswith(b"\x89PNG"))
+        with Image.open(BytesIO(result)) as image:
+            self.assertEqual(image.size, (256, 256))
+            badge_pixel = image.getpixel((200, 200))
+            self.assertGreater(badge_pixel[2], badge_pixel[0])  # blue, not red
 
 
 class NativeEmbedHintTests(unittest.TestCase):
@@ -421,9 +440,7 @@ class ViewTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_carousel_callback_accepts_single_interaction_arg(self) -> None:
         # discord.py calls a manually assigned button callback as cb(interaction).
-        view = CarouselView(
-            ("https://pbs.twimg.com/1.jpg", "https://pbs.twimg.com/2.jpg")
-        )
+        view = CarouselView(("https://pbs.twimg.com/1.jpg", "https://pbs.twimg.com/2.jpg"))
         interaction = SimpleNamespace(response=SimpleNamespace(edit_message=AsyncMock()))
         await view.forward.callback(interaction)
         self.assertEqual(view.index, 1)
