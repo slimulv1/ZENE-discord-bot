@@ -2,6 +2,10 @@
 .env
 .env.*
 !config.example.txt
+cookies.txt
+*.cookies
+*youtube-cookies*
+*.netscape.txt
 zene/TOKEN.json
 
 # Python artifacts

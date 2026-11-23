@@ -405,7 +405,85 @@ không thể trả video trực tiếp. `yt-dlp` metadata-only cũng không gi�
 (không có cookie) và vẫn trả thumbnail cho X. Muốn video thật cần Phase 2: tải có
 cookies/FFmpeg (rủi ro ToS) — hiện **chưa implement**.
 
-## 12. Câu hỏi còn mở
+## 12. Phase 2 — lấy video thật
+
+### 13.1 Ba hướng và lựa chọn
+
+| Hướng | Ưu | Nhược | Quyết định |
+|---|---|---|---|
+| Lấy `format.url` từ `yt-dlp.extract_info(download=False)` | Không tải, rẻ | URL thường là signed/hết hạn; Discord không chắc fetch được video trang | Thử trước (`remote`) |
+| Tải file rồi upload lại | Chắc hiển thị trong `MediaGallery` | Cần cookies + FFmpeg + ≤8MB; rủi ro ToS | Bật riêng (`download`) |
+| Chỉ thumbnail như hiện tại | An toàn, rẻ | Không đúng yêu cầu "video" | Fallback cuối |
+
+Chế độ mới: `ZENE_MEDIA_VIDEO_MODE = off | remote | download` (mặc định `off`).
+
+### 13.2 Cookie = secret tuyệt đối
+
+- `ZENE_MEDIA_COOKIEFILE=/path/outside/repo/cookies.txt` — file Netscape export từ browser,
+  **không commit**, đã thêm pattern vào `.gitignore`.
+- Hoặc `ZENE_MEDIA_COOKIES_FROM_BROWSER=chrome|firefox|edge` trên máy cá nhân.
+- Không log nội dung cookie, không gửi cookie tới web/MCP, không đưa vào URL.
+- Instagram reel test ở mục 11 lỗi vì yt-dlp báo *login required / rate limit* —
+  đây là lý do chính cần cookie, không phải lỗi code.
+
+Đã verify trong yt-dlp 2025.12.08: tham số Python là `cookiefile`,
+`cookiesfrombrowser`, `merge_output_format`, `ffmpeg_location`, `postprocessor_args`
+(`YoutubeDL.py` dòng 349, 350, 426, 519, 521).
+
+### 13.3 Pipeline tải có kiểm soát
+
+```python
+opts = {
+    "quiet": True,
+    "noplaylist": True,
+    "format": "bv*[height<=720]+ba/b[height<=720]/wv*/worst",
+    "outtmpl": str(tmp / "%(id)s.%(ext)s"),
+    "paths": {"temp": str(tmp)},
+    "merge_output_format": "mp4",
+    "cookiefile": cfg.media_cookiefile or None,
+    "cookiesfrombrowser": (browser,) if browser else None,
+    "ffmpeg_location": cfg.media_ffmpeg_path or None,
+}
+
+def work():
+    with yt_dlp.YoutubeDL(opts) as ydl:
+        info = ydl.extract_info(url, download=True)
+        return Path(ydl.prepare_filename(info))
+
+path = await asyncio.wait_for(asyncio.to_thread(work), timeout=cfg.media_timeout)
+if path.stat().st_size > cfg.media_max_bytes:
+    path = await transcode(path, tmp, budget=cfg.media_max_bytes, seconds=60)
+file = discord.File(path, filename="clip.mp4")
+gallery.add_item(media="attachment://clip.mp4", spoiler=spoiler)
+await message.reply(file=file, view=view, mention_author=False)
+# finally: tmp.cleanup()
+```
+
+`transcode()` gọi binary FFmpeg (`-t 60 -vf scale=-2:720 -b:v 1M -b:a 96k`), kiểm tra
+kích thước lần 2; nếu vẫn vượt → bỏ file, gửi thumbnail như Phase 1.
+
+### 13.4 Biến cấu hình mới
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `ZENE_MEDIA_VIDEO_MODE` | `off` | `off` / `remote` / `download` |
+| `ZENE_MEDIA_COOKIEFILE` | rỗng | Đường dẫn file cookie ngoài repo |
+| `ZENE_MEDIA_COOKIES_FROM_BROWSER` | rỗng | `chrome` / `firefox` / `edge` |
+| `ZENE_MEDIA_FFMPEG_PATH` | rỗng | Đường dẫn binary FFmpeg |
+| `ZENE_MEDIA_MAX_DURATION` | `60` | Giây tối đa khi transcode |
+| `ZENE_MEDIA_BITRATE` | `1M` | Bitrate video sau transcode |
+
+Cài FFmpeg: Windows tải static build; Raspberry Pi/Linux `sudo apt install ffmpeg`.
+yt-dlp đã cảnh báo máy hiện tại **không có ffmpeg** khi test reel Instagram.
+
+### 13.5 Rủi ro chưa giải quyết được bằng code
+
+- ToS/bản quyền: tải và đăng lại video người khác vẫn là rủi ro chính sách.
+- Instagram có thể chặn IP/cloud server dù có cookie; cần thử trên IP thực tế.
+- X API tính phí; yt-dlp phụ thuộc cấu trúc HTML nên có thể vỡ bất kỳ lúc nào.
+- Không bao giờ bật chế độ `download` mặc định; chỉ opt-in từng server.
+
+## 13. Câu hỏi còn mở
 
 - TikTok oEmbed có trả thumbnail miễn phí không? (docs bị chặn → **unknown**)
 - Instagram/Facebook cần cookie đăng nhập cho bài public không? (**inferred**: có thể, tuỳ thời điểm)
