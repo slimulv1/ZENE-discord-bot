@@ -1,6 +1,6 @@
 import unittest
 
-from zene_core.avwiki import looks_vietnamese
+from zene_core.avwiki import _guess_source, looks_vietnamese
 from zene_core.config import Config
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
 from zene_core.embedfix.models import ProbeResult
@@ -41,8 +41,14 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(route_for("https://youtube.com/watch?v=1", True), ("meta",))
 
     def test_vietnamese_detection(self) -> None:
-        self.assertTrue(looks_vietnamese("Xin chào bạn"))
+        self.assertTrue(looks_vietnamese("Tiếng Việt"))
         self.assertFalse(looks_vietnamese("Hello world"))
+        # A single Portuguese 'é' must not be treated as Vietnamese.
+        self.assertFalse(looks_vietnamese("Esse é de longe o melhor"))
+
+    def test_source_guess(self) -> None:
+        self.assertEqual(_guess_source("习近平向李在明赠送手机"), "zh-CN")
+        self.assertEqual(_guess_source("Hello world"), "en")
 
 
 class ModifierTests(unittest.TestCase):

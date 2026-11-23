@@ -88,28 +88,57 @@ async def to_vietnamese(text: str) -> str:
     if cached is not None:
         return cached
 
-    # deep_translator hits translate.google.com which rate-limits aggressively.
-    # The gtx endpoint is the same service but tolerates our request rate.
+    # Google gtx first; MyMemory fallback when Google returns 429/breaker opens.
     url = "https://translate.googleapis.com/translate_a/single?" + urlencode(
         {"client": "gtx", "sl": "auto", "tl": "vi", "dt": "t", "q": text}
     )
     data = await fetch_json(url, name="ja-vi")
-    result = text
+    result = ""
     if isinstance(data, list) and data and isinstance(data[0], list):
-        translated = "".join(str(segment[0]) for segment in data[0] if segment and segment[0])
-        if translated:
-            result = translated
-    if result != text:
+        result = "".join(str(segment[0]) for segment in data[0] if segment and segment[0])
+
+    if not result:
+        source = _guess_source(text)
+        fallback_url = "https://api.mymemory.translated.net/get?" + urlencode(
+            {"q": text, "langpair": f"{source}|vi"}
+        )
+        payload = await fetch_json(fallback_url, name="mymemory")
+        translated = ((payload or {}).get("responseData") or {}).get("translatedText")
+        if translated and "INVALID" not in str(translated).upper():
+            result = html.unescape(str(translated))
+
+    if result and result != text:
         _TRANSLATE_CACHE[text] = result
-    return result
+        return result
+    return text
 
 
-_VI_MARKS = set("ăâđêôơưĂÂĐÊÔƠƯàáảãạằắẳẵặầấẩẫậềếểễệìíỉĩịòóỏõọồốổỗộờởỡớợùúủũụừửữựỳýỷỹỵ")
+_VI_UNIQUE = set("ăâđêôơưĂÂĐÊÔƠƯ")
+_VI_TONED = set("ằắẳẵặầấẩẫậềếểễệốồổỗộớờởỡợứừửữự")
+
+
+def _guess_source(text: str) -> str:
+    """Rough script detection for the MyMemory fallback (no extra dependency)."""
+    if re.search(r"[\u4e00-\u9fff]", text):
+        return "zh-CN"
+    if re.search(r"[\u3040-\u30ff]", text):
+        return "ja"
+    if re.search(r"[\uac00-\ud7af]", text):
+        return "ko"
+    if re.search(r"[\u0400-\u04ff]", text):
+        return "ru"
+    return "en"
 
 
 def looks_vietnamese(text: str) -> bool:
-    """Cheap heuristic to skip translation of text already in Vietnamese."""
-    return any(char in _VI_MARKS for char in text[:500])
+    """Skip translation only for clearly Vietnamese text.
+
+    A single 'é'/'ã' is not enough — Portuguese/Spanish would be skipped.
+    """
+    sample = text[:500]
+    if any(char in _VI_UNIQUE for char in sample):
+        return True
+    return sum(char in _VI_TONED for char in sample) >= 2
 
 
 def clean_title(text: str) -> str:

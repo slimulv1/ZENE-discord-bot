@@ -168,9 +168,7 @@ class EmbedFixCog(commands.Cog):
         if result is None:
             result = await self._probe(ctx)
             if result is None:
-                await ctx.message.reply(
-                    content="Không lấy được media từ link này.", mention_author=False
-                )
+                await ctx.message.channel.send(content="Không lấy được media từ link này.")
                 self.bot.stats["embedfix_no_media"] += 1
                 return
             if result.kind in {"video", "gallery"}:
@@ -179,7 +177,7 @@ class EmbedFixCog(commands.Cog):
                 self.cache[key] = result
 
         if result.kind == "link":
-            await ctx.message.reply(content=result.page_url, mention_author=False)
+            await ctx.message.channel.send(content=result.page_url)
             self.bot.stats["embedfix_link_embed"] += 1
             return
 
@@ -213,7 +211,7 @@ class EmbedFixCog(commands.Cog):
         )
         if self.cfg.media_suppress:
             await self._suppress(ctx.message)
-        await ctx.message.reply(view=view, mention_author=False)
+        await ctx.message.channel.send(view=view)
         self.bot.stats["embedfix_ok"] += 1
         if result.kind in {"video", "gallery"}:
             self.bot.stats["embedfix_video_ok"] += 1
