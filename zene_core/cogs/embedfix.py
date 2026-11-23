@@ -32,6 +32,16 @@ from ..net import get_session
 log = logging.getLogger(__name__)
 
 
+def _bot_badge_url(bot) -> str:
+    """Prefer the application icon — it stays recognisable at badge size."""
+    app = getattr(bot, "application", None)
+    icon = getattr(app, "icon", None)
+    if icon is not None:
+        return str(icon.url)
+    user = getattr(bot, "user", None)
+    return str(user.display_avatar.url) if user is not None else ""
+
+
 def _compose_avatar_bytes(user_bytes: bytes, bot_bytes: bytes) -> bytes:
     """Composite the bot avatar over the user avatar at the status-dot corner.
 
@@ -377,10 +387,11 @@ class EmbedFixCog(commands.Cog):
 
         try:
             composed: bytes | None = None
-            if can_create_webhook and self.bot.user is not None:
+            badge_url = _bot_badge_url(self.bot)
+            if can_create_webhook and badge_url:
                 try:
                     user_bytes = await self._avatar_bytes(author.display_avatar.url)
-                    bot_bytes = await self._avatar_bytes(self.bot.user.display_avatar.url)
+                    bot_bytes = await self._avatar_bytes(badge_url)
                     composed = await asyncio.to_thread(_compose_avatar_bytes, user_bytes, bot_bytes)
                 except Exception as exc:  # noqa: BLE001 - avatar is cosmetic
                     log.debug("không ghép được badge avatar: %s", exc)

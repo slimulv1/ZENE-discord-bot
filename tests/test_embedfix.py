@@ -10,7 +10,7 @@ from zene_core import content
 from zene_core.assets import AssetRegistry
 from zene_core.avwiki import _guess_source, looks_vietnamese
 from zene_core.cogs.conversation import ConversationCog
-from zene_core.cogs.embedfix import EmbedFixCog, _compose_avatar_bytes
+from zene_core.cogs.embedfix import EmbedFixCog, _bot_badge_url, _compose_avatar_bytes
 from zene_core.config import Config
 from zene_core.content import fresh_commands, prepare_reload, reload_data
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
@@ -127,6 +127,15 @@ class ReloadDataTests(unittest.TestCase):
 
 
 class AvatarBadgeTests(unittest.TestCase):
+    def test_badge_source_prefers_application_icon(self) -> None:
+        bot = SimpleNamespace(
+            application=SimpleNamespace(icon=SimpleNamespace(url="https://cdn/icon.png")),
+            user=SimpleNamespace(display_avatar=SimpleNamespace(url="https://cdn/user.png")),
+        )
+        self.assertEqual(_bot_badge_url(bot), "https://cdn/icon.png")
+        bot_no_icon = SimpleNamespace(application=None, user=bot.user)
+        self.assertEqual(_bot_badge_url(bot_no_icon), "https://cdn/user.png")
+
     def test_badge_is_composited_at_bottom_right(self) -> None:
         from io import BytesIO
 
