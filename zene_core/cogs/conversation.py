@@ -118,6 +118,7 @@ class ConversationCog(commands.Cog):
 
     # -------------------------------------------------------------- commands --
     @commands.hybrid_command(name="avt", description="Xem ảnh đại diện")
+    @app_commands.describe(member="Người cần xem avatar (bỏ trống là chính bạn)")
     @app_commands.checks.cooldown(1, 3)
     @commands.cooldown(1, 3, commands.BucketType.user)
     async def avt(self, ctx: commands.Context, member: discord.User | None = None) -> None:
@@ -135,9 +136,12 @@ class ConversationCog(commands.Cog):
         await self.bot.safe_send(ctx, embed=embed)
 
     @commands.hybrid_command(name="haha", description="Ghép avatar vào ảnh haha")
+    @app_commands.describe(member="Người cần ghép avatar (bỏ trống là chính bạn)")
     @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def haha(self, ctx: commands.Context, member: discord.User | None = None) -> None:
+        with contextlib.suppress(discord.HTTPException, discord.ClientException):
+            await ctx.defer()
         target = member or ctx.author
         await self._deliver(
             ctx,

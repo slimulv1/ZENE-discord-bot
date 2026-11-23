@@ -230,6 +230,22 @@ Kết luận: giữ **lệnh prefix cho tác vụ cần kiểm soát**, **hybrid
 | Grafana/EUI: phân cấp thị giác, số liệu quan trọng ở trên/trái, tránh dùng riêng màu đỏ/xanh | Dashboard giữ banner trạng thái ở trên, thêm icon ✓/⚠/✗ cạnh màu, bổ sung ping + trigger/hour + guild |
 | Discord docs: hybrid command, cooldown app riêng, embed tối đa 25 field / 1024 ký tự field / 6000 tổng | `z/health` → hybrid `/health`, embed 8 field (~211 ký tự), cooldown 5s cho cả slash lẫn prefix |
 
+## 5g. Kiểm tra tuân thủ Discord (Context7 + discord-api-docs)
+
+Script `scripts/audit_discord.py` soát code/dữ liệu theo giới hạn tài liệu:
+
+| Quy tắc (nguồn docs) | Kết quả |
+|---|---|
+| Tin nhắn tối đa 2000 ký tự | Text dài nhất 1120; command_text 1051; story 1114 → đạt |
+| Embed: 6000 tổng / 25 field / 1024 giá trị / 4096 description | amlich 373/3, giaxang 310/7, health 209/8 → đạt |
+| Upload tối đa 8 MB (bot thường) | File lớn nhất 6.90 MB → đạt |
+| Tên lệnh 1–32, mô tả 1–100, ≤25 option | 8 slash command đều hợp lệ |
+| Interaction phải phản hồi trong ~3s | `code`, `idol`, `amlich`, `giaxang`, `health`, `haha` đều `defer` có guard |
+| Message Content Intent + Members Intent | `Intents.default()` + `message_content=True`; members chỉ bật qua env |
+| Rate limit 50 req/s (discord.py tự xử lý) | Không gọi Discord API trực tiếp ngoài thư viện |
+
+Cải tiến thêm từ audit: mô tả option slash dùng `app_commands.describe` thay vì mặc định `"…"`.
+
 ## 6. Ma trận quyết định thiết kế (ghi lại để tránh "over-engineer sai chỗ")
 
 | Ý tưởng bị loại | Lý do |

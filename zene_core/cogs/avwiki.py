@@ -35,6 +35,7 @@ class AvWikiCog(commands.Cog):
         name="code",
         description="Tra cứu phim theo mã (chỉ kênh NSFW)",
     )
+    @app_commands.describe(arg="Mã phim cần tra, ví dụ SONE-192")
     @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def code(self, ctx: commands.Context, *, arg: str) -> None:
@@ -93,6 +94,7 @@ class AvWikiCog(commands.Cog):
         name="idol",
         description="Tra cứu diễn viên (chỉ kênh NSFW)",
     )
+    @app_commands.describe(arg="Tên diễn viên cần tra")
     @app_commands.checks.cooldown(1, 5)
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def idol(self, ctx: commands.Context, *, arg: str) -> None:
