@@ -489,10 +489,12 @@ yt-dlp đã cảnh báo máy hiện tại **không có ffmpeg** khi test reel In
 
 | Nguồn | Kết quả verify |
 |---|---|
-| X status `2124470814…` | HTML công khai chứa **9 URL `https://video.twimg.com/.../*.mp4?tag=29`**, trong đó có `320x568`, `480x854`. MetaAdapter trước đó chỉ đọc og: nên bỏ sót. |
+| X status `2124470814…` | HTML công khai chứa **9 URL `https://video.twimg.com/.../*.mp4?tag=29`** (`320x568`, `480x854`). MetaAdapter trước đó chỉ đọc og: nên bỏ sót. |
+| `https://api.fxtwitter.com/SenhorZiborro/status/2124470814309486863` | `code:200`; `tweet.media.videos[0].url` = mp4 `480x854`, `thumbnail_url`, `possibly_sensitive:false`. Docs FxEmbed: X dùng prefix `fixupx.com`, Twitter dùng `fxtwitter.com`, Bluesky `fxbsky.app`. |
 | `https://ifx.up.railway.app/p/DgAY0euJkFt/media/0` | `HEAD → 200, video/mp4, 7.18 MB` (< 8 MB) |
 | `https://ifx.up.railway.app/p/Dfy-oKtq9iO/media/0` | `HEAD → 200, video/mp4, 2.34 MB` — reel Instagram cũng ra video |
-| facebed.com | Trang chủ ghi: *"Replace facebook.com with facebed.com… Reels are supported"*, không affiliate với Meta |
+| `https://www.facebed.com/reel/1811869953192242` | `HEAD 200 text/html`; HTML có `og:video:secure_url` trỏ tới **mp4 trên `fbcdn.net`** — đưa thẳng vào `MediaGallery` được |
+| `ddinstagram.com` | DNS `getaddrinfo failed` từ mạng này → **unknown**, không dùng |
 
 Kết luận: với 3 mạng này **không cần tải file về server, cũng không cần yt-dlp**.
 
@@ -500,9 +502,10 @@ Kết luận: với 3 mạng này **không cần tải file về server, cũng k
 
 | Adapter | Input | Output | Delivery |
 |---|---|---|---|
-| `XDirectAdapter` | HTML X | regex `video.twimg.com/.../*.mp4`, chọn `/avc1/{W}x{H}/` có W×H lớn nhất, unescape `&amp;` | V2 `MediaGallery` |
+| `FxEmbedAdapter` (ưu tiên cho X) | `api.fxtwitter.com/{user}/status/{id}` | JSON `tweet.media.videos[0].url`, `thumbnail_url`, `possibly_sensitive` | V2 `MediaGallery` |
+| `XDirectAdapter` (fallback X) | HTML X | regex `video.twimg.com/.../*.mp4`, chọn `/avc1/{W}x{H}/` có W×H lớn nhất, unescape `&amp;` | V2 `MediaGallery` |
 | `IfxAdapter` | path `/p/{id}/` hoặc `/reel/{id}/` | `HEAD https://ifx.up.railway.app/p/{id}/media/{0,1,2}` → giữ URL nếu `video/mp4` và ≤ `media_max_bytes` | V2 `MediaGallery` |
-| `FacebedAdapter` | URL `facebook.com`/`fb.com` | đổi host thành `facebed.com`, giữ path/query | **Message content thường** để Discord tự unfurl |
+| `FacebedAdapter` | URL `facebook.com`/`fb.com` | đổi host thành `facebed.com`, fetch HTML, lấy `og:video:secure_url` (fbcdn mp4) | V2 `MediaGallery`; nếu không có og:video → message content thường để unfurl |
 
 Cần mở rộng `ProbeResult.kind` thêm `"link"` cho trường hợp facebed (không phải asset URL).
 `views.build_view` chỉ dùng cho `image|video|gallery`; `link` đi qua nhánh `message.reply(content=rewritten_url)`.
@@ -514,13 +517,16 @@ Cần mở rộng `ProbeResult.kind` thêm `"link"` cho trường hợp facebed 
 | Biến | Mặc định | Ý nghĩa |
 |---|---|---|
 | `ZENE_MEDIA_USE_PROXIES` | `false` | Bật ifx/facebed (third-party) |
-| `ZENE_MEDIA_PROXY_HOSTS` | `ifx.up.railway.app` | Exact host được phép, không dùng wildcard `.railway.app` |
+| `ZENE_MEDIA_PROXY_HOSTS` | `api.fxtwitter.com,ifx.up.railway.app,facebed.com` | Exact host được phép, không dùng wildcard |
 | `ZENE_MEDIA_FACEBED_HOST` | `facebed.com` | Host rewrite cho Facebook |
 | `ZENE_MEDIA_DIRECT_VIDEO_TTL` | `300` | Cache ngắn vì signed URL có thể hết hạn |
 
 ### 14.4 An toàn & suy thoái
 
 - Chỉ cho phép **exact host** proxy từ config; HEAD validate `Content-Type` và `Content-Length`.
+- `is_asset_url()` hiện tại chỉ nhận suffix CDN (`twimg.com`, `fbcdn.net`, …). Khi implement phải
+  truyền thêm danh sách `proxy_hosts` để chấp nhận exact `ifx.up.railway.app`; nếu không,
+  URL ifx sẽ bị từ chối dù HEAD trả `video/mp4`.
 - Không tải body lạ về server, không log URL đầy (chỉ hash), không follow redirect về IP private.
 - Nếu proxy 403/429 hoặc sai content-type → fallback `og:image` thumbnail như Phase 1.
 - Cache ngắn 5 phút cho URL video trực tiếp; re-probe khi gửi thấy lỗi.
@@ -530,9 +536,9 @@ Cần mở rộng `ProbeResult.kind` thêm `"link"` cho trường hợp facebed 
 
 ```
 MetaAdapter (og:image/og:video)
-  → nếu XDirectAdapter thấy mp4 → thay media_urls bằng mp4, kind=video
+  → nếu X + proxy bật → FxEmbedAdapter JSON → mp4; nếu lỗi → XDirectAdapter regex HTML
   → nếu IG + proxy bật → IfxAdapter HEAD lấy mp4
-  → nếu FB + proxy bật → FacebedAdapter → content message
+  → nếu FB + proxy bật → FacebedAdapter → og:video mp4; nếu không → content message
   → fallback thumbnail / link gốc
 ```
 
