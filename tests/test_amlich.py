@@ -22,15 +22,22 @@ class AmLichTests(unittest.TestCase):
         self.assertEqual(_normalize_hours(""), [])
 
     def test_conflict_covers_full_cycle(self) -> None:
-        lines = _conflict_lines({"conflict_chi": "Mùi"}, 2026)
+        conflict = {
+            "conflict_chi": "Mùi",
+            "conflicting_ages": [
+                {"age": 59, "can_chi": "Đinh Mùi*"},
+                {"age": 23, "can_chi": "Quý Mùi*"},
+            ],
+        }
+        lines = _conflict_lines(conflict, 2026)
         self.assertEqual(
             lines,
             [
                 "Tuổi 11 : Ất Mùi",
-                "Tuổi 23 : Quý Mùi",
+                "Tuổi 23 : Quý Mùi (*)",
                 "Tuổi 35 : Tân Mùi",
                 "Tuổi 47 : Kỷ Mùi",
-                "Tuổi 59 : Đinh Mùi",
+                "Tuổi 59 : Đinh Mùi (*)",
                 "Tuổi 71 : Ất Mùi",
                 "Tuổi 83 : Quý Mùi",
                 "Tuổi 95 : Tân Mùi",
@@ -50,8 +57,26 @@ class AmLichTests(unittest.TestCase):
         )
         self.assertIn("Tuổi 23 : Quý Mùi (*)", lines)
         self.assertIn("Tuổi 59 : Đinh Mùi (*)", lines)
-        self.assertIn("Tuổi 11 : Ất Mùi", lines)
+        # 83 is also Quý Mùi but is NOT the age the library confirmed.
+        self.assertIn("Tuổi 83 : Quý Mùi", lines)
+        self.assertNotIn("Tuổi 83 : Quý Mùi (*)", lines)
         self.assertNotIn("Tuổi 11 : Ất Mùi (*)", lines)
+
+    def test_rule_b_age_is_appended(self) -> None:
+        lines = _conflict_lines(
+            {
+                "conflict_chi": "Dậu",
+                "conflicting_ages": [
+                    {"age": 8, "can_chi": "Đinh Dậu*"},
+                    {"age": 26, "can_chi": "Kỷ Mão"},
+                ],
+            },
+            2026,
+        )
+        self.assertIn("Tuổi 26 : Kỷ Mão (*) [xung phụ]", lines)
+
+    def test_no_library_conflict_returns_no_lines(self) -> None:
+        self.assertEqual(_conflict_lines({"conflict_chi": "Mùi", "conflicting_ages": []}, 2026), [])
 
     def test_ages_use_lunar_year_near_tet(self) -> None:
         # Solar 10-02-2026 is still lunar year 2025 (Ất Tỵ).
@@ -68,6 +93,7 @@ class AmLichTests(unittest.TestCase):
         self.assertIn("Tuổi 11 : Ất Mùi", field.value)
         self.assertIn("Tuổi 23 : Quý Mùi (*)", field.value)
         self.assertIn("Tuổi 59 : Đinh Mùi (*)", field.value)
+        self.assertNotIn("Tuổi 83 : Quý Mùi (*)", field.value)
         self.assertIn("Tuổi 95 : Tân Mùi", field.value)
         self.assertIn("(*) Xung theo Nạp Âm", field.value)
 

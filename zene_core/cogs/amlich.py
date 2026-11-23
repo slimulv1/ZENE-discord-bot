@@ -85,48 +85,46 @@ def _normalize_hours(hours) -> list[str]:
 
 
 def _conflict_lines(conflict: dict, year: int) -> list[str]:
-    """List every conflicting age in the 12-year cycle, not just vnlunar's 2.
+    """Show the full lục-xung (same-branch) cycle plus vnlunar's confirmed ages.
 
-    The library only returns the two closest matches. Users expect the whole
-    cycle (e.g. 11, 23, 35 ... 95 for a Mùi conflict), so walk birth years and
-    keep those sharing the conflicting earthly branch.
+    ``direction.py:56-64`` only lists Can-Chi whose Nạp Âm khắc the day's, so
+    its list is a strict subset of the 12-year same-branch cycle. We keep the
+    full cycle the user asked for, mark the exact confirmed ages and append any
+    rule-(B) "xung phụ" ages that share the *day's* branch.
     """
     import vnlunar
 
+    library_ages = conflict.get("conflicting_ages") or []
     chi = conflict.get("conflict_chi") or ""
-    if not chi:
-        ages = conflict.get("conflicting_ages") or []
-        if ages and isinstance(ages[0], dict):
-            chi = str(ages[0].get("chi") or "")
+    if not chi and library_ages and isinstance(library_ages[0], dict):
+        chi = str(library_ages[0].get("chi") or "")
 
-    # Ages the library itself marks as conflicting under its Nạp Âm rule.
-    # They are a subset of the full lục-xung list; mark them so the embed does
-    # not imply all 8 ages are xung under that stricter rule.
-    confirmed = {
-        str(item.get("can_chi", "")).replace("*", "").strip()
-        for item in (conflict.get("conflicting_ages") or [])
-        if isinstance(item, dict)
-    }
+    # Key by (age, can_chi): the same Can-Chi repeats every 60 years, but only
+    # the specific age returned by vnlunar is confirmed (e.g. 23, not 83).
+    confirmed: dict[str, str] = {}
+    for item in library_ages:
+        if isinstance(item, dict):
+            confirmed[str(item.get("age", ""))] = str(item.get("can_chi", "")).replace("*", "").strip()
 
-    if chi:
-        lines = []
+    if chi and library_ages:
+        lines: list[str] = []
+        listed_ages: set[str] = set()
         for birth in range(year - 1, year - 101, -1):
             name = str(vnlunar.get_year_can_chi(birth))
             if not name.endswith(chi):
                 continue
-            marker = " (*)" if name in confirmed else ""
-            lines.append(f"Tuổi {year - birth} : {name}{marker}")
-        if lines:
-            return lines
+            age = year - birth
+            listed_ages.add(str(age))
+            marker = " (*)" if confirmed.get(str(age)) == name else ""
+            lines.append(f"Tuổi {age} : {name}{marker}")
 
-    # Fallback: use whatever vnlunar supplied.
-    lines = []
-    for item in conflict.get("conflicting_ages") or conflict.get("ages") or []:
-        if isinstance(item, dict):
-            lines.append(f"Tuổi {item.get('age', '')} : {item.get('can_chi', '')}".strip())
-        else:
-            lines.append(str(item))
-    return lines
+        # Rule (B) entries use the day's chi, so they are not in the cycle above.
+        for age, name in confirmed.items():
+            if age not in listed_ages:
+                lines.append(f"Tuổi {age} : {name} (*) [xung phụ]")
+        return lines
+
+    return []  # no library-confirmed conflict -> do not invent one
 
 
 def _render(today: date) -> discord.Embed:
@@ -154,7 +152,7 @@ def _render(today: date) -> discord.Embed:
 
     embed = discord.Embed(
         title=(
-            f"📅 {lunar.get('day', '')}-{lunar.get('month', '')}-{lunar.get('year', '')}"
+            f"📅 Âm lịch {lunar.get('day', '')}-{lunar.get('month', '')}-{lunar.get('year', '')}"
             f"{' (nhuận)' if lunar.get('leap') == 1 else ''}"
         ),
         description=_emojize(description),
@@ -177,7 +175,10 @@ def _render(today: date) -> discord.Embed:
     embed.add_field(
         name="🚫 Tuổi Xung (Lục xung - cùng chi)",
         value=_clip(
-            ("\n".join(conflict_lines) + "\n(*) Xung theo Nạp Âm (vnlunar)")
+            (
+                "\n".join(conflict_lines)
+                + "\n(*) Xung theo Nạp Âm (vnlunar); [xung phụ] cùng chi ngày"
+            )
             if conflict_lines
             else "Không có thông tin"
         ),
