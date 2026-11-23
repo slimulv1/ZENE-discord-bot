@@ -84,6 +84,40 @@ def _normalize_hours(hours) -> list[str]:
     return lines
 
 
+def _conflict_lines(conflict: dict, year: int) -> list[str]:
+    """List every conflicting age in the 12-year cycle, not just vnlunar's 2.
+
+    The library only returns the two closest matches. Users expect the whole
+    cycle (e.g. 11, 23, 35 ... 95 for a Mùi conflict), so walk birth years and
+    keep those sharing the conflicting earthly branch.
+    """
+    import vnlunar
+
+    chi = conflict.get("conflict_chi") or ""
+    if not chi:
+        ages = conflict.get("conflicting_ages") or []
+        if ages and isinstance(ages[0], dict):
+            chi = str(ages[0].get("chi") or "")
+
+    if chi:
+        lines = [
+            f"Tuổi {year - birth} : {name}"
+            for birth in range(year - 1, year - 101, -1)
+            if (name := str(vnlunar.get_year_can_chi(birth))).endswith(chi)
+        ]
+        if lines:
+            return lines
+
+    # Fallback: use whatever vnlunar supplied.
+    lines = []
+    for item in conflict.get("conflicting_ages") or conflict.get("ages") or []:
+        if isinstance(item, dict):
+            lines.append(f"Tuổi {item.get('age', '')} : {item.get('can_chi', '')}".strip())
+        else:
+            lines.append(str(item))
+    return lines
+
+
 def _render(today: date) -> discord.Embed:
     import vnlunar
 
@@ -99,16 +133,7 @@ def _render(today: date) -> discord.Embed:
     )
 
     conflict = vnlunar.get_conflicting_ages(jd, year) or {}
-    ages = conflict.get("conflicting_ages") or conflict.get("ages") or []
-    conflict_lines = []
-    for item in ages[:8]:
-        if isinstance(item, dict):
-            age = item.get("age", "")
-            chi = item.get("can_chi", "")
-            animal = item.get("animal", "")
-            conflict_lines.append(f"Tuổi {age}: {chi} {animal}".strip())
-        else:
-            conflict_lines.append(str(item))
+    conflict_lines = _conflict_lines(conflict, year)
 
     hour_lines = _normalize_hours(vnlunar.get_auspicious_hours(jd))
 
