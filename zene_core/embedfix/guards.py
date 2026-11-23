@@ -19,6 +19,7 @@ TRACKING_PREFIXES = ("utm_",)
 TRACKING_KEYS = frozenset(
     {
         "igshid",
+        "evlk",
         "fbclid",
         "gclid",
         "gbraid",

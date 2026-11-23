@@ -9,6 +9,7 @@ from zene_core import content
 from zene_core.assets import AssetRegistry
 from zene_core.avwiki import _guess_source, looks_vietnamese
 from zene_core.cogs.conversation import ConversationCog
+from zene_core.cogs.embedfix import EmbedFixCog
 from zene_core.config import Config
 from zene_core.content import fresh_commands, prepare_reload, reload_data
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
@@ -216,6 +217,20 @@ class ModifierTests(unittest.TestCase):
         self.assertIn("hide_quote", mods)
 
 
+class NsfwGuardTests(unittest.TestCase):
+    def test_strict_mode_allows_proxy_media_marked_non_sensitive(self) -> None:
+        result = ProbeResult(
+            "gallery", "", "", ("https://ifx.up.railway.app/p/x/media/0",), "", False, ""
+        )
+        fake_self = SimpleNamespace(cfg=SimpleNamespace(media_strict_nsfw=True))
+        ctx = SimpleNamespace(
+            message=SimpleNamespace(channel=SimpleNamespace(is_nsfw=lambda: False))
+        )
+        self.assertTrue(EmbedFixCog._nsfw_allowed(fake_self, ctx, result))
+        unknown = ProbeResult("gallery", "", "", ("https://x/",), "", None, "")
+        self.assertFalse(EmbedFixCog._nsfw_allowed(fake_self, ctx, unknown))
+
+
 class GuardTests(unittest.IsolatedAsyncioTestCase):
     async def test_canonicalize_strips_tracking(self) -> None:
         url = await canonicalize(
@@ -225,6 +240,14 @@ class GuardTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(url.startswith("https://x.com/status/1"))
         self.assertNotIn("utm_source", url)
         self.assertNotIn("igshid", url)
+
+    async def test_canonicalize_strips_instagram_evlk(self) -> None:
+        url = await canonicalize(
+            "https://www.instagram.com/p/Df_8LXvH7xO/?utm_source=ig_web_copy_link&evlk=NTc4MTIwNjQ2YQ==",
+            {"instagram.com"},
+        )
+        self.assertEqual(url, "https://instagram.com/p/Df_8LXvH7xO/")
+        self.assertNotIn("evlk", url)
 
     async def test_domain_spoof_rejected(self) -> None:
         with self.assertRaises(ValueError):

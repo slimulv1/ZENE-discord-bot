@@ -206,7 +206,9 @@ class IfxAdapter:
             if len(collected) == 1 and has_video
             else ("gallery" if len(collected) > 1 else "image")
         )
-        return ProbeResult(kind, "", "", tuple(item for item, _ in collected), "", None, url)
+        # ifx does not expose a sensitivity flag. Without this, strict-NSFW
+        # mode silently drops every Instagram post in a normal channel.
+        return ProbeResult(kind, "", "", tuple(item for item, _ in collected), "", False, url)
 
 
 class TiktokProxyAdapter:
@@ -241,7 +243,8 @@ class TiktokProxyAdapter:
             return ProbeResult("none", "", "", page_url=url)
         if not is_asset_url(final, allowed_domains, proxy_hosts):
             return ProbeResult("none", "", "", page_url=url)
-        return ProbeResult("video", "", "", (final,), "", None, url)
+        # tnktok proxy has no sensitivity metadata; avoid silent drops.
+        return ProbeResult("video", "", "", (final,), "", False, url)
 
 
 class FacebedAdapter:
@@ -265,5 +268,6 @@ class FacebedAdapter:
         parser.feed(raw[:1_000_000])
         video = parser.meta.get("og:video:secure_url") or parser.meta.get("og:video")
         if video and is_asset_url(video, allowed_domains, proxy_hosts):
-            return ProbeResult("video", "", "", (video,), "", None, url)
+            # facebed metadata has no sensitivity field; avoid silent drops.
+            return ProbeResult("video", "", "", (video,), "", False, url)
         return ProbeResult("link", "", "", page_url=rewritten)
