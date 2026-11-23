@@ -10,7 +10,7 @@ from zene_core.assets import AssetRegistry
 from zene_core.avwiki import _guess_source, looks_vietnamese
 from zene_core.cogs.conversation import ConversationCog
 from zene_core.config import Config
-from zene_core.content import fresh_commands, reload_data
+from zene_core.content import fresh_commands, prepare_reload, reload_data
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
 from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
@@ -142,6 +142,27 @@ class RouterTests(unittest.TestCase):
     def test_source_guess(self) -> None:
         self.assertEqual(_guess_source("习近平向李在明赠送手机"), "zh-CN")
         self.assertEqual(_guess_source("Hello world"), "en")
+
+
+class PrepareReloadTests(unittest.TestCase):
+    def test_bad_type_does_not_touch_live_state(self) -> None:
+        snapshot = dict(content.COMMAND_TEXTS)
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "memes.json"
+            broken = {
+                "text_triggers": {},
+                "contains_triggers": [],
+                "folder_triggers": {},
+                "choice_triggers": {},
+                "command_texts": {"hotro": "MỚI"},
+                "anxin_stories": [],
+                "assets": [],  # wrong type -> AttributeError if committed
+            }
+            path.write_text(json.dumps(broken), encoding="utf-8")
+            with patch("zene_core.content.DATA_FILE", path), self.assertRaises(TypeError):
+                prepare_reload()
+        self.assertEqual(content.COMMAND_TEXTS, snapshot)
+        self.assertNotEqual(content.COMMAND_TEXTS.get("hotro"), "MỚI")
 
 
 class HotReloadPerfTests(unittest.TestCase):

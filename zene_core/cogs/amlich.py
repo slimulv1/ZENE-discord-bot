@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import re
 from datetime import date
 
 import discord
@@ -39,6 +40,50 @@ def _emojize(text: str) -> str:
     return text
 
 
+def _emojize_keep(text: str) -> str:
+    """Add the zodiac emoji next to the name instead of replacing the word."""
+    for key, emoji in ZODIAC_EMOJI.items():
+        if key in text:
+            text = text.replace(key, f"{emoji} {key}")
+    return text
+
+
+def _normalize_hours(hours) -> list[str]:
+    """Turn vnlunar's auspicious-hours payload into readable lines.
+
+    Depending on the vnlunar version this is a comma-separated ``str`` (the
+    common case), a dict wrapping a list, or a list of dicts. Iterating the raw
+    string directly would put every single character on its own Discord line.
+    """
+    if isinstance(hours, str):
+        chunks: list = re.split(r"[,;]", hours)
+    elif isinstance(hours, dict):
+        return _normalize_hours(
+            hours.get("hours") or hours.get("auspicious_hours") or hours.get("value") or ""
+        )
+    elif isinstance(hours, (list, tuple)):
+        chunks = []
+        for item in hours:
+            if isinstance(item, dict):
+                label = " ".join(
+                    str(item[key])
+                    for key in ("hour_name", "hour", "time_range", "time")
+                    if item.get(key)
+                )
+                chunks.append(label.strip())
+            else:
+                chunks.append(item)
+    else:
+        chunks = [hours]
+
+    lines: list[str] = []
+    for chunk in chunks:
+        text = " ".join(str(chunk).split())  # collapse stray newlines/spaces
+        if text:
+            lines.append(text)
+    return lines
+
+
 def _render(today: date) -> discord.Embed:
     import vnlunar
 
@@ -65,13 +110,7 @@ def _render(today: date) -> discord.Embed:
         else:
             conflict_lines.append(str(item))
 
-    hours = vnlunar.get_auspicious_hours(jd) or []
-    hour_lines = []
-    for item in hours:
-        if isinstance(item, dict):
-            hour_lines.append(f"{item.get('hour_name', '')}: {item.get('time_range', '')}".strip())
-        else:
-            hour_lines.append(str(item))
+    hour_lines = _normalize_hours(vnlunar.get_auspicious_hours(jd))
 
     embed = discord.Embed(
         title=f"📅 {lunar.get('day', '')}-{lunar.get('month', '')}-{lunar.get('year', '')}",
@@ -90,7 +129,7 @@ def _render(today: date) -> discord.Embed:
     )
     embed.add_field(
         name="🌟 Giờ Hoàng Đạo",
-        value=_clip(_emojize("\n".join(hour_lines)) or "Không có thông tin"),
+        value=_clip(_emojize_keep("\n".join(hour_lines)) or "Không có thông tin"),
         inline=False,
     )
     embed.set_footer(text=f"Dương lịch: {today.strftime('%d-%m-%Y')}")

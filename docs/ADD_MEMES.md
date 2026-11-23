@@ -36,7 +36,7 @@ Nếu lỗi in ra vị trí dòng → bạn thiếu dấu phẩy / ngoặc / nh�
 
 > **Không cần restart process nữa.** Bot có file watcher: cứ ~30 giây kiểm tra
 > `memes.json`, khi thấy đổi thì nạp lại trigger, asset và cooldown ngay trong lúc
-> chạy. Lưu file xong đợi vài giây là gõ trigger mới được. Nếu lỡ lưu file lỗi, bot
+> chạy. Lưu file xong đợi tới ~30 giây là gõ trigger mới được. Nếu lỡ lưu file lỗi, bot
 > giữ dữ liệu cũ và ghi cảnh báo vào log.
 >
 > Muốn nạp ngay không đợi: `z/reloadmemes` (owner only). Tắt tính năng này bằng
@@ -201,7 +201,7 @@ Trong Discord:
 | Triệu chứng | Nguyên nhân / cách sửa |
 |---|---|
 | Bot không khởi động, log lỗi `memes.json` | JSON sai cú pháp → chạy `python -m json.tool` |
-| Sửa JSON nhưng chưa áp dụng | Đợi ~2s để watcher nạp, hoặc gõ `z/reloadmemes`; kiểm tra log nếu file lỗi |
+| Sửa JSON nhưng chưa áp dụng | Đợi tới ~30s để watcher nạp, hoặc gõ `z/reloadmemes`; kiểm tra log nếu file lỗi |
 | Nhắn cụm nhưng bot không phản hồi | Key phải khớp chính xác sau `lower()` + NFC; thử bỏ dấu thừa/space |
 | Báo "Asset tạm thời không khả dụng" | Sai đường dẫn hoặc file quá 8 MB |
 | Ảnh/video hiện sai định dạng | Discord hỗ trợ png/jpg/gif/webp/mp4; tránh file lạ |

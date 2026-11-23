@@ -44,25 +44,43 @@ _REQUIRED_SECTIONS = (
 )
 
 
-def reload_data() -> TriggerRegistry:
-    """Re-read memes.json and refresh every derived object **in place**.
-
-    Mutating the existing containers (rather than rebinding) keeps modules that
-    did ``from .content import COMMAND_TEXTS`` pointing at fresh data. Returns a
-    newly built trigger registry; raises on an invalid/unreadable file so the
-    caller can keep the previous data.
-    """
-    global DATA
-    new = _load()
+def _validate(new: dict) -> None:
+    """Reject malformed files before any live state is touched."""
     if not isinstance(new, dict):
         raise ValueError("memes.json must contain an object")
     for section in _REQUIRED_SECTIONS:
         if section not in new:
             raise ValueError(f"memes.json missing section: {section}")
+    for section in (
+        "text_triggers",
+        "command_texts",
+        "folder_triggers",
+        "choice_triggers",
+        "assets",
+    ):
+        if not isinstance(new[section], dict):
+            raise TypeError(f"memes.json section '{section}' must be an object")
+    for section in ("contains_triggers", "anxin_stories"):
+        if not isinstance(new[section], list):
+            raise TypeError(f"memes.json section '{section}' must be a list")
 
+
+def prepare_reload() -> tuple[dict, TriggerRegistry]:
+    """Read + validate + build a registry without mutating live state."""
+    new = _load()
+    _validate(new)
+    registry = build_registry(new)  # raises here -> nothing committed
+    return new, registry
+
+
+def commit_reload(new: dict) -> None:
+    """Apply a prepared payload on the event-loop thread (no interleaving).
+
+    Existing containers are mutated in place so modules that did
+    ``from .content import COMMAND_TEXTS`` keep seeing fresh data.
+    """
+    global DATA, FOLO_TEXT
     DATA = new
-
-    # Mutable containers: update in place so imported references stay valid.
     MESSAGES.clear()
     MESSAGES.update(new["text_triggers"])
     COMMAND_TEXTS.clear()
@@ -72,15 +90,18 @@ def reload_data() -> TriggerRegistry:
     if isinstance(stories, list):
         CODE_STORIES[:] = stories
 
-    # Immutable strings: rebind the module global (no live importers in-repo).
-    global FOLO_TEXT
     triggers = new["contains_triggers"]
     if triggers and isinstance(triggers[0], dict):
         response = triggers[0].get("response", {})
         if isinstance(response, dict):
             FOLO_TEXT = str(response.get("value", FOLO_TEXT))
 
-    return build_registry(new)
+
+def reload_data() -> TriggerRegistry:
+    """Convenience wrapper: prepare then commit (used by tests/owner command)."""
+    new, registry = prepare_reload()
+    commit_reload(new)
+    return registry
 
 
 def fresh_commands(section: str | None = None) -> list[str]:

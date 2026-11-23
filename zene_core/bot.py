@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import random
 import time
@@ -51,7 +52,7 @@ class ZeneBot(commands.Bot):
         self._content_watch_task: asyncio.Task | None = None
         # Serialize watcher + owner-triggered reloads; dedupe repeated failure logs.
         self._reload_lock = asyncio.Lock()
-        self._reload_failure_logged = False
+        self._reload_failure_key: tuple[str, str, str] | None = None
         # Bound at construction so manual/failed setup_hook cannot leave slash
         # errors unhandled.
         self.tree.on_error = self._on_tree_error
@@ -59,6 +60,16 @@ class ZeneBot(commands.Bot):
     # ---------------------------------------------------------------- boot --
     async def setup_hook(self) -> None:
         await super().setup_hook()
+        # Keep the hot-reload watcher and the asset registry on the same file,
+        # even when ZENE_DATA_DIR points somewhere non-default.
+        configured_file = self.config.data_dir / "memes.json"
+        if configured_file.resolve() != content.DATA_FILE.resolve():
+            log.warning("ZENE_DATA_DIR khác mặc định; dùng %s", configured_file)
+            content.DATA_FILE = configured_file
+            try:
+                self.triggers = await asyncio.to_thread(content.reload_data)
+            except Exception as exc:  # noqa: BLE001 - boot keeps default data
+                log.warning("không nạp memes.json từ ZENE_DATA_DIR: %s", exc)
         await asyncio.to_thread(self.assets.load)
 
         for extension in self.config.required_extensions:
@@ -119,9 +130,9 @@ class ZeneBot(commands.Bot):
         """
         interval = self.config.reload_poll_seconds
         last = await asyncio.to_thread(self._file_stamp)
-        try:
-            while not self._closing:
-                await asyncio.sleep(max(0.0, interval + random.uniform(-1.0, 1.0)))
+        while not self._closing:
+            try:
+                await asyncio.sleep(max(5.0, interval + random.uniform(-1.0, 1.0)))
                 stamp = await asyncio.to_thread(self._file_stamp)
                 if stamp == last or stamp is None:
                     last = stamp
@@ -136,10 +147,10 @@ class ZeneBot(commands.Bot):
                     continue
                 last = settled
                 await self.reload_content(reason="file changed")
-        except asyncio.CancelledError:
-            return
-        except Exception as exc:  # noqa: BLE001 - watcher must never kill the bot
-            log.error("content watcher lỗi: %s", exc)
+            except asyncio.CancelledError:
+                return
+            except Exception as exc:  # noqa: BLE001 - watcher must outlive any bad file
+                log.error("content watcher lỗi (tiếp tục theo dõi): %s", exc)
 
     async def reload_content(self, *, reason: str = "manual") -> bool:
         """Reload memes.json -> triggers, assets and cooldowns. Fail-soft.
@@ -150,18 +161,23 @@ class ZeneBot(commands.Bot):
         """
         async with self._reload_lock:
             try:
-                registry = await asyncio.to_thread(content.reload_data)
-                # content.reload_data already updated this global; reuse it.
-                await asyncio.to_thread(self.assets.load, content.DATA)
-            except (OSError, ValueError, TypeError, KeyError) as exc:
+                # Prepare off-loop: any malformed file raises here, before a
+                # single live object is touched.
+                data, registry = await asyncio.to_thread(content.prepare_reload)
+                await asyncio.to_thread(self.assets.load, data)
+                # Commit on the loop thread so no command can observe a
+                # half-updated dict.
+                content.commit_reload(data)
+            except Exception as exc:  # noqa: BLE001 - fail-soft, keep last good data
                 self.stats["content_reload_failed"] += 1
-                if not self._reload_failure_logged:
+                key = (reason, type(exc).__name__, str(exc))
+                if key != self._reload_failure_key:
                     log.warning(
                         "không nạp lại memes.json (%s): %s — giữ dữ liệu cũ",
                         reason,
                         exc,
                     )
-                    self._reload_failure_logged = True
+                    self._reload_failure_key = key
                 return False
 
             self.triggers = registry
@@ -171,7 +187,7 @@ class ZeneBot(commands.Bot):
                     cog.rebuild_cooldowns()
                 except Exception as exc:  # noqa: BLE001 - watcher must survive a bad cog
                     log.warning("không dựng lại cooldown sau reload: %s", exc)
-            self._reload_failure_logged = False
+            self._reload_failure_key = None
             self.stats["content_reload_ok"] += 1
             log.info(
                 "đã nạp lại memes.json (%s): %d trigger, %d asset",
@@ -281,6 +297,8 @@ class ZeneBot(commands.Bot):
         self._closing = True
         if self._content_watch_task is not None:
             self._content_watch_task.cancel()
+            with contextlib.suppress(asyncio.CancelledError):
+                await self._content_watch_task
         log.info("đang đóng bot gracefully...")
         from .net import close_session
 
