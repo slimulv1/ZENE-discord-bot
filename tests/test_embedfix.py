@@ -407,6 +407,17 @@ class ProxyTests(unittest.TestCase):
 
 
 class ViewTests(unittest.TestCase):
+    def test_gallery_caps_at_nine_for_even_grid(self) -> None:
+        urls = tuple(f"https://pbs.twimg.com/{i}.jpg" for i in range(12))
+        result = ProbeResult("gallery", "Tiêu đề", "", urls, "", False, "")
+        view = build_view(result)
+        gallery = next(
+            component
+            for component in view.to_components()[0]["components"]
+            if component.get("type") == 12
+        )
+        self.assertEqual(len(gallery["items"]), 9)
+
     def test_components_v2_layout(self) -> None:
         result = ProbeResult(
             "gallery",

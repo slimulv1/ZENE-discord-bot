@@ -7,7 +7,10 @@ import discord
 from .models import ProbeResult
 
 MAX_TEXT = 4000  # total across the whole LayoutView, not per item
-MAX_ITEMS = 10
+# Discord supports 10 items, but with 10 the gallery renders one huge
+# full-width item + a 3x3 grid. With 9 it becomes an even 3x3 grid, avoiding
+# the oversized, heavily cropped first image that wastes vertical space.
+MAX_ITEMS = 9
 
 
 def build_view(
