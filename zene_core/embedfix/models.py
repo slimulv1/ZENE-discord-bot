@@ -15,6 +15,11 @@ class LinkContext:
     canonical: str
     modifiers: frozenset[str] = field(default_factory=frozenset)
     lang: str | None = None
+    # Media Discord already resolved in its native link embed. Reusing these
+    # avoids re-fetching a carousel through an unreliable proxy.
+    media_hints: tuple[str, ...] = ()
+    hint_title: str = ""
+    hint_context: str = ""
 
 
 @dataclass(frozen=True, slots=True)

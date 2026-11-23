@@ -126,6 +126,38 @@ class ReloadDataTests(unittest.TestCase):
             content.FOLO_TEXT = original["FOLO_TEXT"]
 
 
+class NativeEmbedHintTests(unittest.TestCase):
+    def test_collects_every_image_from_native_embeds(self) -> None:
+        cfg = SimpleNamespace(
+            media_allowed_domains={"instagram.com"},
+            media_proxy_hosts={"ifx.up.railway.app"},
+        )
+        fake_self = SimpleNamespace(cfg=cfg)
+        raw = "https://www.instagram.com/p/DgFP9UNIBIE/"
+        embeds = [
+            SimpleNamespace(
+                url=raw,
+                title="Post",
+                description="caption",
+                image=SimpleNamespace(url="https://scontent.cdninstagram.com/a.jpg"),
+            ),
+            SimpleNamespace(
+                url=raw,
+                title="",
+                description="",
+                image=SimpleNamespace(url="https://scontent.cdninstagram.com/b.jpg"),
+            ),
+        ]
+        message = SimpleNamespace(embeds=embeds)
+        hints, title, context = EmbedFixCog._embed_hints(fake_self, message, raw)
+        self.assertEqual(
+            hints,
+            ("https://scontent.cdninstagram.com/a.jpg", "https://scontent.cdninstagram.com/b.jpg"),
+        )
+        self.assertEqual(title, "Post")
+        self.assertEqual(context, "caption")
+
+
 class IfxFailFastTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self) -> None:
         from zene_core.embedfix import proxy_adapters

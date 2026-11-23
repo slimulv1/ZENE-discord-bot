@@ -14,7 +14,7 @@ from discord.ext import commands
 
 from ..avwiki import looks_vietnamese, to_vietnamese
 from ..embedfix.adapters import MetaAdapter, YtDlpAdapter
-from ..embedfix.guards import canonicalize, url_hash
+from ..embedfix.guards import canonicalize, is_asset_url, url_hash
 from ..embedfix.models import LinkContext, ProbeResult
 from ..embedfix.modifiers import LINK_RE, parse_modifiers
 from ..embedfix.proxy_adapters import (
@@ -77,6 +77,27 @@ class EmbedFixCog(commands.Cog):
         if self._task is not None and not self._task.done():
             self._task.cancel()
 
+    def _embed_hints(self, message: discord.Message, raw: str) -> tuple[tuple[str, ...], str, str]:
+        """Reuse media Discord already resolved in its native link embed."""
+        urls: list[str] = []
+        title = ""
+        context = ""
+        for embed in message.embeds:
+            embed_url = str(getattr(embed, "url", "") or "")
+            if embed_url and raw not in embed_url and embed_url not in raw:
+                continue
+            image = getattr(embed, "image", None)
+            media_url = str(getattr(image, "url", "") or "") if image is not None else ""
+            if media_url and is_asset_url(
+                media_url, self.cfg.media_allowed_domains, self.cfg.media_proxy_hosts
+            ):
+                urls.append(media_url)
+            if not title:
+                title = str(getattr(embed, "title", "") or "")
+            if not context:
+                context = str(getattr(embed, "description", "") or "")
+        return tuple(dict.fromkeys(urls)), title, context
+
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message) -> None:
         if not self.cfg.media_links_enabled or not self.cfg.media_allowed_domains:
@@ -105,8 +126,20 @@ class EmbedFixCog(commands.Cog):
                 )
             except ValueError:
                 continue
+            hints, hint_title, hint_context = self._embed_hints(message, raw)
             try:
-                self.queue.put_nowait(LinkContext(message, raw, canonical, mods, lang))
+                self.queue.put_nowait(
+                    LinkContext(
+                        message,
+                        raw,
+                        canonical,
+                        mods,
+                        lang,
+                        media_hints=hints,
+                        hint_title=hint_title,
+                        hint_context=hint_context,
+                    )
+                )
             except asyncio.QueueFull:
                 self.bot.stats["embedfix_dropped"] += 1
                 return
@@ -196,9 +229,25 @@ class EmbedFixCog(commands.Cog):
 
     async def _process(self, ctx: LinkContext) -> None:
         key = url_hash(ctx.canonical)
-        result = self.video_cache.get(key) or self.cache.get(key)
+        # Native Discord embeds already contain the full carousel. Prefer them
+        # over re-probing (ifx is often down) and never reuse a stale single
+        # image from cache when fresh hints are available.
+        result = None if ctx.media_hints else (self.video_cache.get(key) or self.cache.get(key))
         if result is None:
-            result = await self._probe(ctx)
+            if ctx.media_hints:
+                kind = "gallery" if len(ctx.media_hints) > 1 else "image"
+                result = ProbeResult(
+                    kind,
+                    ctx.hint_title,
+                    "",
+                    ctx.media_hints,
+                    ctx.hint_context,
+                    False,
+                    ctx.canonical,
+                )
+                self.bot.stats["embedfix_native_hints"] += 1
+            else:
+                result = await self._probe(ctx)
             if result is None:
                 await ctx.message.channel.send(content="Không lấy được media từ link này.")
                 self.bot.stats["embedfix_no_media"] += 1
