@@ -14,7 +14,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from ..content import ANXIN_STORIES, COMMAND_TEXTS, MESSAGES
+from ..content import ANXIN_STORIES, COMMAND_TEXTS, fresh_commands
 from ..pagination import paginated_list
 from ..triggers import Response, normalize
 
@@ -196,16 +196,14 @@ class ConversationCog(commands.Cog):
     @app_commands.checks.cooldown(1, 10)
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def cmd(self, ctx: commands.Context) -> None:
-        names = list(self.bot.assets.command_names)
+        names = fresh_commands("assets") or list(self.bot.assets.command_names)
         await paginated_list(ctx, "📜 Danh sách lệnh asset", names)
 
     @commands.hybrid_command(name="list", description="Xem tất cả cụm meme")
     @app_commands.checks.cooldown(1, 10)
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def list_memes(self, ctx: commands.Context) -> None:
-        names = sorted(
-            set(self.bot.assets.command_names) | set(MESSAGES) | set(self.bot.triggers.exact_names)
-        )
+        names = fresh_commands()
         await paginated_list(ctx, "🐾 Danh sách cụm meme", names)
 
     @commands.command(name="hotro")

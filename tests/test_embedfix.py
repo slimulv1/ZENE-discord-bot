@@ -1,7 +1,12 @@
+import json
+import tempfile
 import unittest
+from pathlib import Path
+from unittest.mock import patch
 
 from zene_core.avwiki import _guess_source, looks_vietnamese
 from zene_core.config import Config
+from zene_core.content import fresh_commands
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
 from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
@@ -30,6 +35,29 @@ class ConfigTests(unittest.TestCase):
         self.assertFalse(no_translate.media_auto_translate)
         impersonate = Config.from_env({"DISCORD_TOKEN": "x" * 40, "ZENE_MEDIA_MODE": "impersonate"})
         self.assertEqual(impersonate.media_mode, "impersonate")
+
+
+class FreshCommandsTests(unittest.TestCase):
+    def test_reads_from_disk_each_call(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "memes.json"
+            path.write_text(
+                json.dumps(
+                    {
+                        "assets": {"meme mới": "zene/data/image/a.png"},
+                        "text_triggers": {"chào bot": "hello"},
+                        "folder_triggers": {},
+                        "choice_triggers": {},
+                        "contains_triggers": [{"pattern": "siuuu"}],
+                    }
+                ),
+                encoding="utf-8",
+            )
+            with patch("zene_core.content.DATA_FILE", path):
+                self.assertEqual(fresh_commands("assets"), ["meme mới"])
+                names = fresh_commands()
+                self.assertIn("chào bot", names)
+                self.assertIn("siuuu", names)
 
 
 class RouterTests(unittest.TestCase):

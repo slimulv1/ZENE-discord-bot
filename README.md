@@ -112,6 +112,9 @@ Discord). Nếu thử ở kênh thường, bot sẽ nhắc bạn đổi kênh.
 | `z/vanmau <chủ đề>` | Các đoạn "văn mẫu" hài hước |
 | `z/anxin`, `z/xinloi`, `z/sapnupuas`, `z/samhoi`, `z/hotro` | Các câu text meme có sẵn |
 
+> `/cmd` và `/list` đọc trực tiếp `memes.json` mỗi lần gọi — sửa file xong gõ lại
+> lệnh là thấy ngay, không cần restart bot.
+
 ### 🎬 Lệnh ảnh và video
 
 | Gõ | Bot làm gì |

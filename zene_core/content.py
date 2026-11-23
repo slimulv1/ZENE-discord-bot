@@ -21,6 +21,40 @@ def _load() -> dict:
 
 
 DATA = _load()
+
+
+def fresh_data() -> dict:
+    """Re-read memes.json so commands always see the latest edits."""
+    try:
+        return _load()
+    except (OSError, ValueError, TypeError):
+        return DATA
+
+
+def fresh_commands(section: str | None = None) -> list[str]:
+    """Return command phrases directly from disk.
+
+    ``section=None`` means all meme phrases; pass a section name for only that
+    part (e.g. ``assets``). Invalid/missing sections degrade to the cached DATA.
+    """
+    data = fresh_data()
+    names: set[str] = set()
+    if section is not None:
+        for key in data.get(section, {}):
+            if isinstance(key, str) and key:
+                names.add(key)
+    else:
+        for key in ("text_triggers", "folder_triggers", "choice_triggers", "assets"):
+            for name in data.get(key, {}):
+                if isinstance(name, str) and name:
+                    names.add(name)
+        for trigger in data.get("contains_triggers", []):
+            pattern = trigger.get("pattern") if isinstance(trigger, dict) else None
+            if isinstance(pattern, str) and pattern:
+                names.add(pattern)
+    return sorted(names)
+
+
 MESSAGES: dict[str, str] = DATA["text_triggers"]
 FOLO_TEXT: str = DATA["contains_triggers"][0]["response"]["value"]
 CODE_STORIES: list[str] = DATA["choice_triggers"]["300 bài code thiếu nhi"]
