@@ -68,7 +68,7 @@ class AvWikiCog(commands.Cog):
 
     @commands.hybrid_command(
         name="code",
-        description="Tra cứu phim theo mã (chỉ kênh NSFW)",
+        description="Tra cứu phim theo mã (ảnh được làm mờ)",
     )
     @app_commands.describe(arg="Mã phim cần tra, ví dụ SONE-192")
     @app_commands.checks.cooldown(1, 5)
@@ -87,7 +87,36 @@ class AvWikiCog(commands.Cog):
 
         item = results[0]
         jp_title = clean_title(item["title"])
-        vi_title = await to_vietnamese(jp_title)
+        actress_jp = item["actress"]
+        need_page = not item["image"].startswith(("http://", "https://"))
+
+        # All of these are independent: translate title/actress and look up the
+        # cover from av-wiki + FANZA concurrently instead of paying 4x RTT.
+        tasks = [to_vietnamese(jp_title)]
+        if actress_jp:
+            tasks.append(to_vietnamese(actress_jp))
+        if need_page:
+            tasks.append(page_thumbnail(item["link"]))
+        tasks.append(
+            dmm_image(
+                item["code"] or arg,
+                self.bot.config.dmm_api_id,
+                self.bot.config.dmm_affiliate_id,
+            )
+        )
+        gathered = await asyncio.gather(*tasks, return_exceptions=True)
+
+        vi_title = gathered[0] if isinstance(gathered[0], str) else jp_title
+        cursor = 1
+        actress_vi = ""
+        if actress_jp:
+            actress_vi = gathered[cursor] if isinstance(gathered[cursor], str) else ""
+            cursor += 1
+        page_image = ""
+        if need_page:
+            page_image = gathered[cursor] if isinstance(gathered[cursor], str) else ""
+            cursor += 1
+        fanza_image = gathered[cursor] if isinstance(gathered[cursor], str) else ""
 
         embed = discord.Embed(
             title=f"🎬 Mã phim: {item['code'] or arg.upper()}",
@@ -96,15 +125,13 @@ class AvWikiCog(commands.Cog):
             color=discord.Colour.blurple(),
         )
 
-        actress_jp = item["actress"]
-        actress_vi = await to_vietnamese(actress_jp) if actress_jp else ""
         fields = [
             ("👩 Diễn viên", bilingual(actress_jp, actress_vi)),
             ("🏢 Hãng sản xuất", item["maker"]),
             ("🏷️ Nhãn", item["label"]),
             ("📼 Series", item["series"]),
-            ("🔢 FANZA", item["fanza"]),
             ("📅 Ngày phát hành", item["date"]),
+            ("🔢 FANZA", item["fanza"]),
         ]
         for name, value in fields:
             if value:
@@ -112,18 +139,16 @@ class AvWikiCog(commands.Cog):
 
         image = item["image"]
         source_note = "Nguồn: av-wiki.net"
-        if not image.startswith(("http://", "https://")):
-            image = await page_thumbnail(item["link"])
-            if image:
-                source_note += " • Ảnh: av-wiki"
-        if not image.startswith(("http://", "https://")):
-            image = await dmm_image(
-                item["code"] or arg,
-                self.bot.config.dmm_api_id,
-                self.bot.config.dmm_affiliate_id,
-            )
-            if image:
-                source_note += " • Ảnh: FANZA"
+        if not image.startswith(("http://", "https://")) and page_image.startswith(
+            ("http://", "https://")
+        ):
+            image = page_image
+            source_note += " • Ảnh: av-wiki"
+        if not image.startswith(("http://", "https://")) and fanza_image.startswith(
+            ("http://", "https://")
+        ):
+            image = fanza_image
+            source_note += " • Ảnh: FANZA"
 
         attachment = None
         if image.startswith(("http://", "https://")):
@@ -139,7 +164,7 @@ class AvWikiCog(commands.Cog):
 
     @commands.hybrid_command(
         name="idol",
-        description="Tra cứu diễn viên (chỉ kênh NSFW)",
+        description="Tra cứu diễn viên (profile + tác phẩm)",
     )
     @app_commands.describe(arg="Tên diễn viên cần tra")
     @app_commands.checks.cooldown(1, 5)
@@ -158,8 +183,20 @@ class AvWikiCog(commands.Cog):
 
         name_jp = result["name"]
         romaji = result.get("romaji") or ""
+        works = result["works"][:4]
+        work_titles = [clean_title(work["title"]) for work in works]
+
+        # Translate the name and every work title concurrently; the shared
+        # semaphore in to_vietnamese keeps this from spamming the provider.
+        translated = await asyncio.gather(
+            *(to_vietnamese(text) for text in (name_jp, *work_titles)),
+            return_exceptions=True,
+        )
+        name_vi = translated[0] if isinstance(translated[0], str) else ""
+        work_vi = [value if isinstance(value, str) else "" for value in translated[1:]]
+
         embed = discord.Embed(
-            title=f"🌟 {name_jp}{f' 【{romaji}】' if romaji else ''}",
+            title=f"🌟 {name_jp}{f' 【{romaji or name_vi}】' if (romaji or name_vi) else ''}",
             url=result["link"] or None,
             description=f"📚 Tổng **{result['count']}** tác phẩm được ghi nhận.",
             color=discord.Colour.blurple(),
@@ -167,13 +204,13 @@ class AvWikiCog(commands.Cog):
         if result.get("image"):
             embed.set_thumbnail(url=result["image"])
 
-        # Profile fields shown in the reference card. av-wiki only provides
-        # some of them; missing values are shown as a dash, never invented.
+        # Profile first, ordered like the reference card: identity -> body ->
+        # background -> extra. Missing data is shown as a dash, never invented.
         profile = (
-            ("🏠 Đến từ", result.get("origin")),
-            ("📏 Số đo 3 vòng", result.get("measurements")),
-            ("📐 Chiều cao", result.get("height")),
             ("🎂 Ngày sinh", result.get("birthdate")),
+            ("📐 Chiều cao", result.get("height")),
+            ("📏 Số đo 3 vòng", result.get("measurements")),
+            ("🏠 Đến từ", result.get("origin")),
             ("💚 Sở thích", result.get("hobbies")),
             ("🔤 Tên khác", result.get("alias")),
             ("📱 SNS", result.get("sns")),
@@ -181,9 +218,9 @@ class AvWikiCog(commands.Cog):
         for label, value in profile:
             embed.add_field(name=label, value=_clip(value or "—", 200), inline=True)
 
-        for work in result["works"][:4]:
-            jp = clean_title(work["title"])
-            vi = await to_vietnamese(jp)
+        if works:
+            embed.add_field(name="🎬 Tác phẩm gần đây", value="─" * 12, inline=False)
+        for work, jp, vi in zip(works, work_titles, work_vi, strict=True):
             embed.add_field(
                 name=f"🎞️ {work['code'] or '—'}",
                 value=_clip(bilingual(jp, vi), 240),

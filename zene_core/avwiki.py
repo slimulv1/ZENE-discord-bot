@@ -21,6 +21,9 @@ BASE = "https://av-wiki.net/wp-json/wp/v2"
 _LOOKUP_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
 _THUMB_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
 _TRANSLATE_CACHE: TTLCache = TTLCache(maxsize=512, ttl=86400)
+# Bound parallel translations so /idol does not hammer Google with 5 requests
+# at once (429 -> breaker -> slower than doing them sequentially).
+_TRANSLATE_SEM = asyncio.Semaphore(4)
 
 
 def _strip(raw: str) -> str:
@@ -192,29 +195,35 @@ async def to_vietnamese(text: str) -> str:
     if cached is not None:
         return cached
 
-    # Google gtx first; MyMemory fallback when Google returns 429/breaker opens.
-    url = "https://translate.googleapis.com/translate_a/single?" + urlencode(
-        {"client": "gtx", "sl": "auto", "tl": "vi", "dt": "t", "q": text}
-    )
-    data = await fetch_json(url, name="ja-vi")
-    result = ""
-    if isinstance(data, list) and data and isinstance(data[0], list):
-        result = "".join(str(segment[0]) for segment in data[0] if segment and segment[0])
+    async with _TRANSLATE_SEM:
+        # A sibling coroutine may have populated the cache while we waited.
+        cached = _TRANSLATE_CACHE.get(text)
+        if cached is not None:
+            return cached
 
-    if not result:
-        source = _guess_source(text)
-        fallback_url = "https://api.mymemory.translated.net/get?" + urlencode(
-            {"q": text, "langpair": f"{source}|vi"}
+        # Google gtx first; MyMemory fallback when Google returns 429/breaker opens.
+        url = "https://translate.googleapis.com/translate_a/single?" + urlencode(
+            {"client": "gtx", "sl": "auto", "tl": "vi", "dt": "t", "q": text}
         )
-        payload = await fetch_json(fallback_url, name="mymemory")
-        translated = ((payload or {}).get("responseData") or {}).get("translatedText")
-        if translated and "INVALID" not in str(translated).upper():
-            result = html.unescape(str(translated))
+        data = await fetch_json(url, name="ja-vi")
+        result = ""
+        if isinstance(data, list) and data and isinstance(data[0], list):
+            result = "".join(str(segment[0]) for segment in data[0] if segment and segment[0])
 
-    if result and result != text:
-        _TRANSLATE_CACHE[text] = result
-        return result
-    return text
+        if not result:
+            source = _guess_source(text)
+            fallback_url = "https://api.mymemory.translated.net/get?" + urlencode(
+                {"q": text, "langpair": f"{source}|vi"}
+            )
+            payload = await fetch_json(fallback_url, name="mymemory")
+            translated = ((payload or {}).get("responseData") or {}).get("translatedText")
+            if translated and "INVALID" not in str(translated).upper():
+                result = html.unescape(str(translated))
+
+        if result and result != text:
+            _TRANSLATE_CACHE[text] = result
+            return result
+        return text
 
 
 _VI_UNIQUE = set("ăâđêôơưĂÂĐÊÔƠƯ")
