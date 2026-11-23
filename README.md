@@ -391,27 +391,61 @@ tests/                  unit test
 
 ## 🖼️ 10. Tự động sửa embed link social media
 
-Bật tính năng này (mặc định **tắt**) bằng cách thêm vào `.env`:
+Bot tự nhận link trong tin nhắn và reply lại bằng gallery ảnh/video, thay vì để
+Discord hiển thị preview bị lỗi. Tính năng này **mặc định tắt**.
+
+### Bật trong 2 bước
+
+Thêm vào file `.env`:
 
 ```
 ZENE_MEDIA_LINKS_ENABLED=true
-ZENE_MEDIA_ALLOWED_DOMAINS=youtube.com,tiktok.com,x.com,instagram.com,facebook.com
+ZENE_MEDIA_ALLOWED_DOMAINS=x.com,instagram.com,facebook.com,tiktok.com,youtube.com
 ```
 
-Khi có người gửi link, bot sẽ lấy ảnh/video từ meta tag của trang và reply lại bằng
-**Discord Components V2** (`MediaGallery`), không tải rồi upload lại file.
-
-Mẹo đặt trước link: `文` dịch, `||` spoiler, `~` ẩn quote, `^` hiện parent, `es:` chọn ngôn ngữ.
-
-Muốn video thật (X / Instagram / Facebook) không cần yt-dlp, thêm:
+Muốn ưu tiên video thật thì thêm dòng này (không cần yt-dlp):
 
 ```
 ZENE_MEDIA_USE_PROXIES=true
 ```
 
-Bot sẽ dùng API công khai/proxy embed để lấy URL mp4 trực tiếp rồi gửi qua gallery.
+> Điền **tên miền gốc**, không có `www.`. Ví dụ `x.com` chứ không phải `www.x.com`.
 
-> Cần **discord.py >= 2.6**. Chi tiết thiết kế tại
+### Kết quả theo từng mạng
+
+| Mạng | Không bật proxy | Bật proxy |
+|---|---|---|
+| X / Twitter | Ảnh hoặc video nếu HTML có mp4 | Video mp4 qua API `api.fxtwitter.com` |
+| Instagram | Ảnh thumbnail | Video mp4 qua `ifx.up.railway.app` |
+| Facebook | Ảnh thumbnail | Video mp4 qua `facebed.com` |
+| TikTok | Ảnh thumbnail | Video mp4 qua `offload.tnktok.com` |
+| YouTube | Ảnh thumbnail | Giữ nguyên thumbnail |
+
+Bot gửi ảnh/video bằng **Discord Components V2** (`MediaGallery`). Nếu có nhiều ảnh
+trong một bài, bot gộp tối đa 10 ảnh vào cùng một gallery.
+
+### Điều khiển từng link
+
+Đặt ký tự trước link:
+
+| Gõ | Tác dụng |
+|---|---|
+| `文` | Dịch nội dung |
+| `es:` | Dịch sang tiếng Tây Ban Nha (đổi mã ngôn ngữ tuỳ ý) |
+| `\|\|` | Ẩn ảnh/video thành spoiler |
+| `~` | Ẩn phần trích dẫn |
+| `^` | Giữ lại phần trả lời gốc |
+
+Ví dụ: `文 es: || https://x.com/user/status/123`
+
+### Lưu ý nhỏ
+
+- Mỗi người chỉ được kích hoạt 3 giây/lần; tối đa 3 link trong một tin nhắn.
+- Link phải nằm trong `ZENE_MEDIA_ALLOWED_DOMAINS`, nếu không bot bỏ qua.
+- Ảnh/video nhạy cảm chỉ hiện trong kênh đã bật NSFW.
+- Bot bỏ qua tin nhắn từ bot khác, và tự bỏ qua link đã xử lý trong 5 phút.
+
+> Cần **discord.py >= 2.6**. Thiết kế chi tiết và kết quả test tại
 > [docs/SOCIAL_MEDIA.md](docs/SOCIAL_MEDIA.md).
 
 ---
