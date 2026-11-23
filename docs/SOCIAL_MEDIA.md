@@ -180,7 +180,152 @@ Bot này là **embed fixer**, không phải downloader. Điểm khác biệt l�
 
 **Kết luận sửa thiết kế:** ưu tiên `embed fixer` (remote URL) hơn `downloader`. yt-dlp vẫn giữ làm fallback cho link không có oEmbed tốt.
 
-## 9. Câu hỏi còn mở
+## 10. Cách code cho đúng (đã kiểm tra API discord.py 2.7)
+
+### 10.1 Kiểu dữ liệu
+
+```python
+from dataclasses import dataclass, field
+from typing import Literal
+
+@dataclass(frozen=True, slots=True)
+class LinkContext:
+    message: discord.Message
+    url: str
+    canonical: str
+    modifiers: frozenset[str] = field(default_factory=frozenset)
+    lang: str | None = None
+
+@dataclass(frozen=True, slots=True)
+class ProbeResult:
+    kind: Literal["image", "video", "gallery", "none"]
+    title: str
+    author: str
+    media_urls: tuple[str, ...]          # URL từ CDN của nền tảng
+    context: str = ""                    # quote / parent / community note
+    nsfw: bool = False
+```
+
+`media_urls` là **URL từ nền tảng**, không phải file tải về — đây là khác biệt lớn nhất
+so với thiết kế yt-dlp ban đầu.
+
+### 10.2 Parser modifier
+
+```python
+MOD_MAP = {"文": "translate", "~": "hide_quote", "||": "spoiler", "^": "parent"}
+LANG = re.compile(r"^([a-z]{2}):", re.I)
+
+def parse_modifiers(text: str) -> tuple[str, frozenset[str], str | None]:
+    mods: set[str] = set()
+    lang = None
+    match = LANG.match(text)
+    if match:
+        lang = match.group(1).lower()
+        text = text[match.end():]
+    for token, name in MOD_MAP.items():
+        if token in text:
+            mods.add(name)
+            text = text.replace(token, "")
+    return text.strip(), frozenset(mods), lang
+```
+
+Chạy parser **trước** khi canonical hoá URL. Không dùng regex tham lam nuốt cả câu.
+
+### 10.3 Dựng gallery bằng Components V2 (API đã verify tồn tại)
+
+```python
+def build_gallery(result: ProbeResult, spoiler: bool) -> discord.ui.LayoutView:
+    view = discord.ui.LayoutView(timeout=180)
+    container = discord.ui.Container(accent_colour=discord.Colour.blurple())
+    container.add_item(
+        discord.ui.TextDisplay(f"**{result.title}** — {result.author}"[:4096])
+    )
+    if result.context:
+        container.add_item(discord.ui.TextDisplay(result.context[:4096]))
+
+    gallery = discord.ui.MediaGallery()
+    for url in result.media_urls[:10]:          # MediaGallery tối đa 10 item
+        gallery.add_item(media=url, spoiler=spoiler)
+    container.add_item(gallery)
+    view.add_item(container)
+    return view
+```
+
+Đã kiểm tra: `Container.add_item`, `LayoutView.add_item`, `MediaGallery.add_item`,
+`TextDisplay` đều tồn tại; `MediaGallery.add_item` nhận `media=str|discord.File` và
+`spoiler=bool`, ném `ValueError` nếu quá 10 item.
+
+> **Không trộn** `embed=` / `content=` với `view=LayoutView` (Components V2) — inferred,
+> cần smoke test khi implement.
+
+### 10.4 Ẩn preview của message gốc
+
+```python
+async def suppress_preview(message: discord.Message) -> bool:
+    guild = message.guild
+    if guild is None or not message.channel.permissions_for(guild.me).manage_messages:
+        return False
+    try:
+        await message.edit(suppress=True)
+        return True
+    except (discord.Forbidden, discord.HTTPException):
+        return False
+```
+
+`suppress=True` **yêu cầu Manage Messages** (đã verify trong docs `Message.edit`).
+Không có quyền thì cứ reply bình thường.
+
+### 10.5 Chế độ Impersonate (webhook)
+
+```python
+async def send_impersonated(
+    bot, channel, author, view
+) -> None:
+    webhook = await channel.create_webhook(name="zene-embed")  # cần Manage Webhooks
+    try:
+        await webhook.send(
+            username=author.display_name,
+            avatar_url=author.display_avatar.url,
+            view=view,
+            wait=True,
+        )
+    finally:
+        await webhook.delete()
+```
+
+Có thể cache webhook theo channel thay vì tạo/xoá mỗi lần. Webhook trả về tin nhắn
+**mới** mang tên người gửi — vẫn không sửa được message gốc.
+
+### 10.6 Luồng xử lý tổng hợp
+
+```python
+async def on_message(message):
+    if not cfg.enabled or message.author.bot or message.guild is None:
+        return
+    links = LINK_RE.findall(message.content)
+    if not links or len(links) > cfg.max_links:
+        return
+    for raw in links:
+        text, mods, lang = parse_modifiers(raw)
+        ctx = LinkContext(message, raw, canonical(raw), mods, lang)
+        await QUEUE.put(ctx)          # không await download ở đây
+```
+
+Worker: `probe()` → nếu có `media_urls` → `build_gallery()` ngay; nếu không →
+`fetch()` (yt-dlp trong `asyncio.to_thread` + `wait_for`) → build → `suppress` →
+reply/webhook → cache hash.
+
+### 10.7 Checklist nghiệm thu
+
+- [ ] Unit test `parse_modifiers` với `文 es: http://... ||`, `~`, `^`.
+- [ ] Unit test classifier: `image`, `video`, `gallery`, `none`.
+- [ ] Smoke test `build_gallery(...).to_components()` — đảm bảo ≤10 item (đã thử: 1 container, 3 child, 2 gallery item).
+- [ ] Test `suppress_preview` khi bot thiếu Manage Messages → trả `False`, không crash.
+- [ ] Test breaker mở sau 3 lỗi, fallback vẫn gửi link gốc.
+- [ ] Test không log URL đầy (chỉ hash).
+- [ ] Test temp dir được dọn trong `finally`.
+
+## 11. Câu hỏi còn mở
 
 - TikTok oEmbed có trả thumbnail miễn phí không? (docs bị chặn → **unknown**)
 - Instagram/Facebook cần cookie đăng nhập cho bài public không? (**inferred**: có thể, tuỳ thời điểm)
