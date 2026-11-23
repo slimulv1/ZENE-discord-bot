@@ -150,8 +150,10 @@ class AvatarBadgeTests(unittest.TestCase):
         self.assertTrue(result.startswith(b"\x89PNG"))
         with Image.open(BytesIO(result)) as image:
             self.assertEqual(image.size, (256, 256))
-            badge_pixel = image.getpixel((200, 200))
+            badge_pixel = image.getpixel((178, 178))
             self.assertGreater(badge_pixel[2], badge_pixel[0])  # blue, not red
+            # Badge must stay inside the big circle: outer corner is transparent.
+            self.assertEqual(image.getpixel((248, 248))[3], 0)
 
 
 class NativeEmbedHintTests(unittest.TestCase):

@@ -70,8 +70,16 @@ def _compose_avatar_bytes(user_bytes: bytes, bot_bytes: bytes) -> bytes:
     ImageDraw.Draw(ring).ellipse((0, 0, ring.width - 1, ring.height - 1), fill=(43, 45, 49, 255))
     ring.alpha_composite(badge, (border, border))
 
-    margin = 4
-    base.alpha_composite(ring, (size - ring.width - margin, size - ring.height - margin))
+    # Keep the badge fully inside the circular base. At 45°, the farthest
+    # point is centre_distance + ring_radius; solve for a small edge gap.
+    edge_gap = 6
+    distance = size / 2 - ring.width / 2 - edge_gap  # 70 on a 256px base
+    offset = distance / (2 ** 0.5)
+    centre = size / 2 + offset
+    base.alpha_composite(
+        ring,
+        (round(centre - ring.width / 2), round(centre - ring.height / 2)),
+    )
     out = BytesIO()
     base.save(out, format="PNG")
     return out.getvalue()
