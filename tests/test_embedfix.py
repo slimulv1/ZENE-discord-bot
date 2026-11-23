@@ -4,9 +4,10 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+from zene_core import content
 from zene_core.avwiki import _guess_source, looks_vietnamese
 from zene_core.config import Config
-from zene_core.content import fresh_commands
+from zene_core.content import fresh_commands, reload_data
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
 from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
@@ -35,6 +36,12 @@ class ConfigTests(unittest.TestCase):
         self.assertFalse(no_translate.media_auto_translate)
         impersonate = Config.from_env({"DISCORD_TOKEN": "x" * 40, "ZENE_MEDIA_MODE": "impersonate"})
         self.assertEqual(impersonate.media_mode, "impersonate")
+        self.assertTrue(config.reload_on_change)
+        self.assertFalse(
+            Config.from_env(
+                {"DISCORD_TOKEN": "x" * 40, "ZENE_RELOAD_ON_CHANGE": "false"}
+            ).reload_on_change
+        )
 
 
 class FreshCommandsTests(unittest.TestCase):
@@ -58,6 +65,59 @@ class FreshCommandsTests(unittest.TestCase):
                 names = fresh_commands()
                 self.assertIn("chào bot", names)
                 self.assertIn("siuuu", names)
+
+
+class ReloadDataTests(unittest.TestCase):
+    def test_reload_mutates_in_place_and_rejects_bad_file(self) -> None:
+        original = {
+            "DATA": content.DATA,
+            "MESSAGES": content.MESSAGES.copy(),
+            "COMMAND_TEXTS": content.COMMAND_TEXTS.copy(),
+            "ANXIN_STORIES": content.ANXIN_STORIES[:],
+            "CODE_STORIES": content.CODE_STORIES[:],
+            "FOLO_TEXT": content.FOLO_TEXT,
+        }
+        good = {
+            "text_triggers": {"câu mới": "rồi"},
+            "contains_triggers": [
+                {"name": "folo", "pattern": "folo", "response": {"kind": "text", "value": " FolO "}}
+            ],
+            "folder_triggers": {"thư mục mới": "haohan"},
+            "choice_triggers": {"300 bài code thiếu nhi": ["câu 1", "câu 2"]},
+            "command_texts": {"hotro": "nhắn lại nha"},
+            "anxin_stories": [" chuyện 1 "],
+            "assets": {"ảnh mới": "zene/data/image/a.png"},
+        }
+        try:
+            with tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "memes.json"
+                path.write_text(json.dumps(good), encoding="utf-8")
+                with patch("zene_core.content.DATA_FILE", path):
+                    registry = reload_data()
+                    self.assertIsNotNone(registry.match("câu mới"))
+                    self.assertIsNotNone(registry.match("folo"))
+                    # Imported references see the new data because of in-place mutation.
+                    self.assertIn("câu mới", content.MESSAGES)
+                    self.assertEqual(content.COMMAND_TEXTS["hotro"], "nhắn lại nha")
+                    self.assertEqual(content.ANXIN_STORIES, [" chuyện 1 "])
+
+                    # Missing section -> ValueError, last good data untouched.
+                    broken = dict(good)
+                    broken.pop("assets")
+                    path.write_text(json.dumps(broken), encoding="utf-8")
+                    with self.assertRaises(ValueError):
+                        reload_data()
+                    self.assertIn("câu mới", content.MESSAGES)
+                    self.assertEqual(content.COMMAND_TEXTS["hotro"], "nhắn lại nha")
+        finally:
+            content.DATA = original["DATA"]
+            content.MESSAGES.clear()
+            content.MESSAGES.update(original["MESSAGES"])
+            content.COMMAND_TEXTS.clear()
+            content.COMMAND_TEXTS.update(original["COMMAND_TEXTS"])
+            content.ANXIN_STORIES[:] = original["ANXIN_STORIES"]
+            content.CODE_STORIES[:] = original["CODE_STORIES"]
+            content.FOLO_TEXT = original["FOLO_TEXT"]
 
 
 class RouterTests(unittest.TestCase):

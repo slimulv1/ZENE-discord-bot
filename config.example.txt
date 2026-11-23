@@ -17,6 +17,9 @@ ZENE_REQUIRED_EXTENSIONS=zene_core.cogs.conversation,zene_core.cogs.ops,zene_cor
 ZENE_OPTIONAL_EXTENSIONS=zene.information,zene.hentai_interact,zene.wiki,zene.van_mau,zene.nhentai,zene.hannom,zene.google_trans
 ZENE_DISABLED_EXTENSIONS=
 
+# Tự nạp lại memes.json khi file thay đổi (không cần restart bot)
+ZENE_RELOAD_ON_CHANGE=true
+
 # Resilience
 ZENE_REQUEST_TIMEOUT=10
 ZENE_TRIGGER_COOLDOWN=1.5

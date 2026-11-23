@@ -34,10 +34,13 @@ python -m json.tool zene/data/memes.json
 
 Nếu lỗi in ra vị trí dòng → bạn thiếu dấu phẩy / ngoặc / nháy kép.
 
-> **Không tự khởi động lại bằng `z/restart`**: module `content.py` đọc JSON lúc
-> import, và lệnh restart chỉ tạo lại bot trong cùng process. Phải **restart cả
-> process**: `Ctrl+C` rồi chạy lại `python run.py`, hoặc
-> `sudo systemctl restart zene-bot`, hoặc `docker compose restart`.
+> **Không cần restart process nữa.** Bot có file watcher: cứ ~2 giây kiểm tra
+> `memes.json`, khi thấy đổi thì nạp lại trigger, asset và cooldown ngay trong lúc
+> chạy. Lưu file xong đợi vài giây là gõ trigger mới được. Nếu lỡ lưu file lỗi, bot
+> giữ dữ liệu cũ và ghi cảnh báo vào log.
+>
+> Muốn nạp ngay không đợi: `z/reloadmemes` (owner only). Tắt tính năng này bằng
+> `ZENE_RELOAD_ON_CHANGE=false`.
 
 ---
 
@@ -198,7 +201,7 @@ Trong Discord:
 | Triệu chứng | Nguyên nhân / cách sửa |
 |---|---|
 | Bot không khởi động, log lỗi `memes.json` | JSON sai cú pháp → chạy `python -m json.tool` |
-| Sửa JSON nhưng không áp dụng | Chưa restart **process** (`z/restart` là chưa đủ) |
+| Sửa JSON nhưng chưa áp dụng | Đợi ~2s để watcher nạp, hoặc gõ `z/reloadmemes`; kiểm tra log nếu file lỗi |
 | Nhắn cụm nhưng bot không phản hồi | Key phải khớp chính xác sau `lower()` + NFC; thử bỏ dấu thừa/space |
 | Báo "Asset tạm thời không khả dụng" | Sai đường dẫn hoặc file quá 8 MB |
 | Ảnh/video hiện sai định dạng | Discord hỗ trợ png/jpg/gif/webp/mp4; tránh file lạ |

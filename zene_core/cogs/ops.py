@@ -87,6 +87,20 @@ class OpsCog(commands.Cog):
         log.info("reload %s: %s", extension, ok)
         await self.bot.safe_send(ctx, message)
 
+    @commands.command(name="reloadmemes")
+    @commands.is_owner()
+    @commands.cooldown(1, 5, commands.BucketType.user)
+    async def reloadmemes(self, ctx: commands.Context) -> None:
+        ok = await self.bot.reload_content(reason="owner command")
+        if ok:
+            await self.bot.safe_send(
+                ctx,
+                f"✅ Đã nạp lại memes.json — {len(self.bot.triggers)} trigger, "
+                f"{self.bot.assets.command_count} asset.",
+            )
+        else:
+            await self.bot.safe_send(ctx, "⚠️ Không nạp lại được, bot giữ dữ liệu cũ.")
+
     @commands.command(name="restart")
     @commands.is_owner()
     @commands.cooldown(1, 15, commands.BucketType.user)

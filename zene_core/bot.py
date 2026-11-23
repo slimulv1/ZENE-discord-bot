@@ -11,6 +11,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+from . import content
 from .assets import AssetRegistry
 from .config import Config
 from .content import build_registry
@@ -46,6 +47,7 @@ class ZeneBot(commands.Bot):
         self.ready_once = False
         self._send_semaphore = asyncio.Semaphore(8)
         self._closing = False
+        self._content_watch_task: asyncio.Task | None = None
         # Bound at construction so manual/failed setup_hook cannot leave slash
         # errors unhandled.
         self.tree.on_error = self._on_tree_error
@@ -65,6 +67,12 @@ class ZeneBot(commands.Bot):
             log.info("slash commands synced: %d", len(synced))
         except Exception as exc:  # noqa: BLE001 - slash sync must not block prefix bot
             log.warning("slash sync failed: %s", exc)
+
+        if self.config.reload_on_change:
+            self._content_watch_task = asyncio.create_task(
+                self._content_watcher(), name="content-watcher"
+            )
+            log.info("theo dõi memes.json: tự nạp lại khi file thay đổi")
 
     async def _load_extension(self, extension: str, *, required: bool) -> None:
         if extension in self.config.disabled_extensions:
@@ -88,6 +96,61 @@ class ZeneBot(commands.Bot):
         except Exception as exc:  # noqa: BLE001 - surfaced to the operator
             self.failed_extensions[extension] = f"{type(exc).__name__}: {exc}"
             return False, f"Reload {extension} thất bại: {exc}"
+
+    # ------------------------------------------------------- hot content reload --
+    @staticmethod
+    def _file_stamp() -> tuple[int, int] | None:
+        """mtime(ns)+size fingerprint; None if the file is temporarily missing."""
+        try:
+            stat = content.DATA_FILE.stat()
+            return stat.st_mtime_ns, stat.st_size
+        except OSError:
+            return None
+
+    async def _content_watcher(self) -> None:
+        """Poll memes.json; reload everything in-place when its stamp changes."""
+        last = await asyncio.to_thread(self._file_stamp)
+        try:
+            while not self._closing:
+                await asyncio.sleep(2.0)
+                stamp = await asyncio.to_thread(self._file_stamp)
+                if stamp == last or stamp is None:
+                    last = stamp
+                    continue
+                # Debounce: editors often write in multiple small chunks.
+                await asyncio.sleep(0.6)
+                settled = await asyncio.to_thread(self._file_stamp)
+                last = settled
+                if settled != stamp or settled is None:
+                    continue
+                await self.reload_content(reason="file changed")
+        except asyncio.CancelledError:
+            return
+        except Exception as exc:  # noqa: BLE001 - watcher must never kill the bot
+            log.error("content watcher lỗi: %s", exc)
+
+    async def reload_content(self, *, reason: str = "manual") -> bool:
+        """Reload memes.json -> triggers, assets and cooldowns. Fail-soft."""
+        try:
+            registry = await asyncio.to_thread(content.reload_data)
+            await asyncio.to_thread(self.assets.load)
+        except (OSError, ValueError, TypeError, KeyError) as exc:
+            log.warning("không nạp lại memes.json (%s): %s — giữ dữ liệu cũ", reason, exc)
+            self.stats["content_reload_failed"] += 1
+            return False
+
+        self.triggers = registry
+        cog = self.get_cog("ConversationCog")
+        if cog is not None and hasattr(cog, "rebuild_cooldowns"):
+            cog.rebuild_cooldowns()
+        self.stats["content_reload_ok"] += 1
+        log.info(
+            "đã nạp lại memes.json (%s): %d trigger, %d asset",
+            reason,
+            len(registry),
+            self.assets.command_count,
+        )
+        return True
 
     # --------------------------------------------------------------- events --
     async def on_ready(self) -> None:
@@ -187,6 +250,8 @@ class ZeneBot(commands.Bot):
         if self._closing:
             return
         self._closing = True
+        if self._content_watch_task is not None:
+            self._content_watch_task.cancel()
         log.info("đang đóng bot gracefully...")
         from .net import close_session
 

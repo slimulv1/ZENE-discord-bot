@@ -25,17 +25,22 @@ class ConversationCog(commands.Cog):
     def __init__(self, bot) -> None:
         self.bot = bot
         self._rng = random.SystemRandom()
-        default = max(0.1, bot.config.trigger_cooldown)
+        self._excel_cooldowns: dict[str, commands.CooldownMapping] = {}
+        self._excel_cooldown_default = max(0.1, bot.config.trigger_cooldown)
+        self._cooldowns: dict[str, commands.CooldownMapping] = {}
+        self.rebuild_cooldowns()
+
+    def rebuild_cooldowns(self) -> None:
+        """Rebuild per-trigger rate limits after a memes.json hot reload."""
+        default = self._excel_cooldown_default
         self._cooldowns = {
             trigger.name: commands.CooldownMapping.from_cooldown(
                 1,
                 trigger.cooldown if trigger.cooldown > 0 else default,
                 commands.BucketType.user,
             )
-            for trigger in bot.triggers.all
+            for trigger in self.bot.triggers.all
         }
-        self._excel_cooldowns: dict[str, commands.CooldownMapping] = {}
-        self._excel_cooldown_default = default
 
     # ------------------------------------------------------------- listener --
     @commands.Cog.listener()

@@ -31,6 +31,58 @@ def fresh_data() -> dict:
         return DATA
 
 
+# Sections that must exist for a file to count as a valid reload. A partially
+# written file is rejected so the live bot keeps its last known-good data.
+_REQUIRED_SECTIONS = (
+    "text_triggers",
+    "contains_triggers",
+    "folder_triggers",
+    "choice_triggers",
+    "command_texts",
+    "anxin_stories",
+    "assets",
+)
+
+
+def reload_data() -> TriggerRegistry:
+    """Re-read memes.json and refresh every derived object **in place**.
+
+    Mutating the existing containers (rather than rebinding) keeps modules that
+    did ``from .content import COMMAND_TEXTS`` pointing at fresh data. Returns a
+    newly built trigger registry; raises on an invalid/unreadable file so the
+    caller can keep the previous data.
+    """
+    global DATA
+    new = _load()
+    if not isinstance(new, dict):
+        raise ValueError("memes.json must contain an object")
+    for section in _REQUIRED_SECTIONS:
+        if section not in new:
+            raise ValueError(f"memes.json missing section: {section}")
+
+    DATA = new
+
+    # Mutable containers: update in place so imported references stay valid.
+    MESSAGES.clear()
+    MESSAGES.update(new["text_triggers"])
+    COMMAND_TEXTS.clear()
+    COMMAND_TEXTS.update(new["command_texts"])
+    ANXIN_STORIES[:] = new["anxin_stories"]
+    stories = new["choice_triggers"].get("300 bài code thiếu nhi")
+    if isinstance(stories, list):
+        CODE_STORIES[:] = stories
+
+    # Immutable strings: rebind the module global (no live importers in-repo).
+    global FOLO_TEXT
+    triggers = new["contains_triggers"]
+    if triggers and isinstance(triggers[0], dict):
+        response = triggers[0].get("response", {})
+        if isinstance(response, dict):
+            FOLO_TEXT = str(response.get("value", FOLO_TEXT))
+
+    return build_registry(new)
+
+
 def fresh_commands(section: str | None = None) -> list[str]:
     """Return command phrases directly from disk.
 
@@ -62,10 +114,12 @@ COMMAND_TEXTS: dict[str, str] = DATA["command_texts"]
 ANXIN_STORIES: list[str] = DATA["anxin_stories"]
 
 
-def build_registry() -> TriggerRegistry:
+def build_registry(data: dict | None = None) -> TriggerRegistry:
+    """Build a trigger registry from ``data`` (defaults to the cached DATA)."""
+    data = DATA if data is None else data
     registry = TriggerRegistry()
 
-    for phrase, text in MESSAGES.items():
+    for phrase, text in data["text_triggers"].items():
         registry.add(
             Trigger(
                 name=f"text:{phrase}",
@@ -75,7 +129,7 @@ def build_registry() -> TriggerRegistry:
             )
         )
 
-    for spec in DATA["contains_triggers"]:
+    for spec in data["contains_triggers"]:
         response = spec["response"]
         registry.add(
             Trigger(
@@ -88,7 +142,7 @@ def build_registry() -> TriggerRegistry:
             )
         )
 
-    for phrase, folder in DATA["folder_triggers"].items():
+    for phrase, folder in data["folder_triggers"].items():
         registry.add(
             Trigger(
                 name=f"folder:{phrase}",
@@ -98,7 +152,7 @@ def build_registry() -> TriggerRegistry:
             )
         )
 
-    for phrase, choices in DATA["choice_triggers"].items():
+    for phrase, choices in data["choice_triggers"].items():
         registry.add(
             Trigger(
                 name=f"choice:{phrase}",
