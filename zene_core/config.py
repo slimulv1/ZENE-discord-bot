@@ -22,7 +22,8 @@ LEGACY_OWNER_ID = 262844868919951360
 
 DEFAULT_REQUIRED_EXTENSIONS = (
     "zene_core.cogs.conversation,zene_core.cogs.ops,zene_core.cogs.avwiki,"
-    "zene_core.cogs.amlich,zene_core.cogs.giaxang,zene_core.cogs.digest"
+    "zene_core.cogs.amlich,zene_core.cogs.giaxang,zene_core.cogs.digest,"
+    "zene_core.cogs.embedfix"
 )
 DEFAULT_OPTIONAL_EXTENSIONS = (
     "zene.information,zene.hentai_interact,zene.wiki,zene.van_mau,"
@@ -142,6 +143,21 @@ class Config:
     health_port: int = 8080
     max_asset_bytes: int = 8 * 1024 * 1024
 
+    # Social media link embedder (disabled by default).
+    media_links_enabled: bool = False
+    media_allowed_domains: frozenset[str] = frozenset()
+    media_mode: str = "reply"
+    media_max_links: int = 3
+    media_max_bytes: int = 8 * 1024 * 1024
+    media_timeout: float = 25.0
+    media_cache_ttl: int = 3600
+    media_workers: int = 1
+    media_queue_size: int = 32
+    media_strict_nsfw: bool = True
+    media_suppress: bool = False
+    media_use_ytdlp: bool = False
+    media_lang: str = "vi"
+
     def summary(self) -> str:
         """A log-safe representation (token redacted)."""
         return (
@@ -214,4 +230,25 @@ class Config:
             health_host=_clean(env.get("HEALTH_HOST")) or "127.0.0.1",
             health_port=_env_int(env, "HEALTH_PORT", 8080),
             max_asset_bytes=max(1024, _env_int(env, "ZENE_MAX_ASSET_BYTES", 8 * 1024 * 1024)),
+            media_links_enabled=_env_bool(env, "ZENE_MEDIA_LINKS_ENABLED", False),
+            media_allowed_domains=frozenset(
+                domain.strip().lower()
+                for domain in _env_csv(env, "ZENE_MEDIA_ALLOWED_DOMAINS")
+                if domain.strip()
+            ),
+            media_mode=(
+                _clean(env.get("ZENE_MEDIA_MODE")).lower()
+                if _clean(env.get("ZENE_MEDIA_MODE")).lower() in {"reply", "replace"}
+                else "reply"
+            ),
+            media_max_links=max(1, _env_int(env, "ZENE_MEDIA_MAX_LINKS", 3)),
+            media_max_bytes=max(1024, _env_int(env, "ZENE_MEDIA_MAX_BYTES", 8 * 1024 * 1024)),
+            media_timeout=max(5.0, _env_float(env, "ZENE_MEDIA_TIMEOUT", 25.0)),
+            media_cache_ttl=max(0, _env_int(env, "ZENE_MEDIA_CACHE_TTL", 3600)),
+            media_workers=max(1, min(4, _env_int(env, "ZENE_MEDIA_WORKERS", 1))),
+            media_queue_size=max(4, _env_int(env, "ZENE_MEDIA_QUEUE_SIZE", 32)),
+            media_strict_nsfw=_env_bool(env, "ZENE_MEDIA_STRICT_NSFW", True),
+            media_suppress=_env_bool(env, "ZENE_MEDIA_SUPPRESS", False),
+            media_use_ytdlp=_env_bool(env, "ZENE_MEDIA_USE_YTDLP", False),
+            media_lang=_clean(env.get("ZENE_MEDIA_LANG")) or "vi",
         )

@@ -1,7 +1,10 @@
 # Thiết kế: link social media → ảnh/video trong Discord
 
-> Tài liệu **thiết kế**, chưa implement. Mục tiêu: bot tự nhận link TikTok / X /
-> Instagram / Facebook do người dùng gửi và trả đúng ảnh hoặc video.
+> **Phase 1 đã implement** (`zene_core/embedfix/` + `zene_core/cogs/embedfix.py`):
+> oEmbed/meta tags → Components V2 gallery, modifier, suppress, cache, breaker.
+> yt-dlp adapter có sẵn nhưng mặc định tắt (`ZENE_MEDIA_USE_YTDLP=false`).
+> Mục tiêu: bot tự nhận link TikTok / X / Instagram / Facebook do người dùng gửi
+> và trả đúng ảnh hoặc video.
 
 ---
 
@@ -196,6 +199,7 @@ Bot này là **embed fixer**, không phải downloader. Điểm khác biệt l�
 from dataclasses import dataclass, field
 from typing import Literal
 
+
 @dataclass(frozen=True, slots=True)
 class LinkContext:
     message: discord.Message
@@ -204,14 +208,15 @@ class LinkContext:
     modifiers: frozenset[str] = field(default_factory=frozenset)
     lang: str | None = None
 
+
 @dataclass(frozen=True, slots=True)
 class ProbeResult:
     kind: Literal["image", "video", "gallery", "none"]
     title: str
     author: str
-    media_urls: tuple[str, ...]          # URL từ CDN của nền tảng
-    context: str = ""                    # quote / parent / community note
-    nsfw: bool | None = None             # None = chưa biết → coi như NSFW
+    media_urls: tuple[str, ...]  # URL từ CDN của nền tảng
+    context: str = ""  # quote / parent / community note
+    nsfw: bool | None = None  # None = chưa biết → coi như NSFW
 ```
 
 `media_urls` là **URL asset trực tiếp từ nền tảng** (ảnh/video), không phải URL trang
@@ -226,6 +231,7 @@ Nếu chỉ có URL trang (ví dụ link tweet) thì phải lấy `thumbnail_url
 LINK_RE = re.compile(r"https?://[^\s<>]+", re.I)
 MOD_MAP = {"文": "translate", "~": "hide_quote", "||": "spoiler", "^": "parent"}
 LANG = re.compile(r"\b([a-z]{2}(?:[-_][a-zA-Z]{2})?):", re.I)
+
 
 def parse_modifiers(text: str) -> tuple[str, frozenset[str], str | None]:
     # Chỉ đọc phần KHÔNG phải URL. Nếu replace trên cả câu, một dấu '~'
@@ -260,7 +266,7 @@ def build_gallery(result: ProbeResult, spoiler: bool) -> discord.ui.LayoutView:
     container.add_item(discord.ui.TextDisplay(text[:4000]))
 
     gallery = discord.ui.MediaGallery()
-    for url in result.media_urls[:10]:          # MediaGallery tối đa 10 item
+    for url in result.media_urls[:10]:  # MediaGallery tối đa 10 item
         gallery.add_item(media=url, spoiler=spoiler)
     container.add_item(gallery)
     view.add_item(container)
@@ -286,7 +292,7 @@ component tới nó — Components V2 ẩn attachment nếu không có component
 ```python
 file = discord.File(temp_path, filename="clip.mp4")
 gallery.add_item(media="attachment://clip.mp4", spoiler=spoiler)
-await message.reply(file=file, view=view)   # KHÔNG truyền embed/content
+await message.reply(file=file, view=view)  # KHÔNG truyền embed/content
 ```
 
 ### 10.4 Ẩn preview của message gốc
@@ -309,9 +315,7 @@ Không có quyền thì cứ reply bình thường.
 ### 10.5 Chế độ Impersonate (webhook)
 
 ```python
-async def send_impersonated(
-    bot, channel, author, view
-) -> None:
+async def send_impersonated(bot, channel, author, view) -> None:
     webhook = await channel.create_webhook(name="zene-embed")  # cần Manage Webhooks
     try:
         await webhook.send(
@@ -341,9 +345,7 @@ async def on_message(message):
         _, mods, lang = parse_modifiers(message.content[: match.start()])
         try:
             # put_nowait tránh block event handler; check-then-put không atomic.
-            await QUEUE.put_nowait(
-                LinkContext(message, raw, await canonical(raw), mods, lang)
-            )
+            await QUEUE.put_nowait(LinkContext(message, raw, await canonical(raw), mods, lang))
         except asyncio.QueueFull:
             STATS["dropped"] += 1
 ```

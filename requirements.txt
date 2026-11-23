@@ -15,7 +15,11 @@ requests>=2.28,<3.0
 vnlunar>=1.0,<2.0
 cachetools>=5.0,<7.0
 python-dotenv>=1.0,<2.0
+tldextract>=3,<4  # registrable-domain allowlist (avoid subdomain spoofing)
 tzdata>=2022.7,<2027  # zoneinfo data on Windows / minimal images
+
+# Optional: install `yt-dlp>=2024,<2026` if you enable ZENE_MEDIA_USE_YTDLP.
+# It is imported lazily by zene_core/embedfix/adapters.py.
 
 # NOTE: dmm-search3 is intentionally NOT installed. It pins requests==2.21.0
 # and only exports dmm.DMM. A patched vendored copy lives in ./dmm/ and is

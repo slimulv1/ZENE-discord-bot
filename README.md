@@ -404,6 +404,25 @@ Toàn văn nằm trong file [LICENSE](LICENSE). Đây **không phải** giấy p
 
 ---
 
+## 🖼️ 11. Tự động sửa embed link social media
+
+Bật tính năng này (mặc định **tắt**) bằng cách thêm vào `.env`:
+
+```
+ZENE_MEDIA_LINKS_ENABLED=true
+ZENE_MEDIA_ALLOWED_DOMAINS=youtube.com,tiktok.com,x.com,instagram.com,facebook.com
+```
+
+Khi có người gửi link, bot sẽ lấy ảnh/video từ meta tag của trang và reply lại bằng
+**Discord Components V2** (`MediaGallery`), không tải rồi upload lại file.
+
+Mẹo đặt trước link: `文` dịch, `||` spoiler, `~` ẩn quote, `^` hiện parent, `es:` chọn ngôn ngữ.
+
+> Cần **discord.py >= 2.6**. Chi tiết thiết kế tại
+> [docs/SOCIAL_MEDIA.md](docs/SOCIAL_MEDIA.md).
+
+---
+
 <p align="center">
   <img src="docs/logo.png" alt="ZENE Bot" width="64">
   <br>
