@@ -58,6 +58,22 @@ def pick_best_mp4(raw_html: str) -> str | None:
     return max(candidates, key=score)
 
 
+def extract_item_url(
+    item: dict,
+    allowed_domains: Iterable[str],
+    proxy_hosts: Iterable[str],
+) -> str | None:
+    """Pick the first valid asset URL from a FxEmbed media item."""
+    candidates = [item.get("url"), item.get("thumbnail_url")]
+    for variant in item.get("variants") or []:
+        if isinstance(variant, dict):
+            candidates.append(variant.get("url"))
+    for candidate in candidates:
+        if candidate and is_asset_url(str(candidate), allowed_domains, proxy_hosts):
+            return str(candidate)
+    return None
+
+
 class FxEmbedAdapter:
     name = "fxtwitter"
 
@@ -80,19 +96,29 @@ class FxEmbedAdapter:
         if not isinstance(tweet, dict):
             return ProbeResult("none", "", "", page_url=url)
 
-        media_list = (tweet.get("media") or {}).get("videos") or []
-        first = media_list[0] if isinstance(media_list, list) and media_list else None
-        media: tuple[str, ...] = ()
-        kind = "none"
-        if isinstance(first, dict):
-            video_url = first.get("url")
-            thumb = first.get("thumbnail_url")
-            if video_url and is_asset_url(str(video_url), allowed_domains, proxy_hosts):
-                media = (str(video_url),)
-                kind = "video"
-            elif thumb and is_asset_url(str(thumb), allowed_domains, proxy_hosts):
-                media = (str(thumb),)
-                kind = "image"
+        tweet_media = tweet.get("media") or {}
+        media_list = tweet_media.get("all") or tweet_media.get("videos") or []
+        media_urls: list[str] = []
+        has_video = False
+        if isinstance(media_list, list):
+            for item in media_list[:10]:
+                if not isinstance(item, dict):
+                    continue
+                url = extract_item_url(item, allowed_domains, proxy_hosts)
+                if not url:
+                    continue
+                media_urls.append(url)
+                if item.get("type") == "video" or ".mp4" in url:
+                    has_video = True
+        media = tuple(dict.fromkeys(media_urls))
+        if has_video:
+            kind = "video"
+        elif len(media) > 1:
+            kind = "gallery"
+        elif media:
+            kind = "image"
+        else:
+            kind = "none"
 
         author = (tweet.get("author") or {}).get("screen_name", "")
         return ProbeResult(
@@ -139,15 +165,19 @@ class IfxAdapter:
         if not shortcode:
             return ProbeResult("none", "", "", page_url=url)
         session = await get_session()
-        for index in (0, 1, 2):
+        collected: list[tuple[str, bool]] = []
+        misses = 0
+        for index in range(10):
             media_url = f"https://ifx.up.railway.app/p/{shortcode}/media/{index}"
             try:
                 async with session.head(
                     media_url, allow_redirects=True, timeout=timeout
                 ) as response:
-                    if response.status != 200:
-                        continue
-                    if "video" not in (response.headers.get("Content-Type") or ""):
+                    content_type = response.headers.get("Content-Type") or ""
+                    if response.status != 200 or not content_type.startswith(("video/", "image/")):
+                        misses += 1
+                        if misses >= 2:
+                            break
                         continue
                     try:
                         size = int(response.headers.get("Content-Length") or 0)
@@ -157,10 +187,22 @@ class IfxAdapter:
                         continue
                     if not is_asset_url(media_url, allowed_domains, proxy_hosts):
                         continue
-                    return ProbeResult("video", "", "", (media_url,), "", None, url)
+                    collected.append((media_url, content_type.startswith("video/")))
+                    misses = 0
             except Exception as exc:  # noqa: BLE001 - proxy boundary
                 log.debug("ifx probe failed: %s", exc)
-        return ProbeResult("none", "", "", page_url=url)
+                misses += 1
+                if misses >= 2:
+                    break
+        if not collected:
+            return ProbeResult("none", "", "", page_url=url)
+        has_video = any(is_video for _, is_video in collected)
+        kind = (
+            "video"
+            if len(collected) == 1 and has_video
+            else ("gallery" if len(collected) > 1 else "image")
+        )
+        return ProbeResult(kind, "", "", tuple(item for item, _ in collected), "", None, url)
 
 
 class TiktokProxyAdapter:

@@ -83,13 +83,17 @@ class EmbedFixCog(commands.Cog):
         if self.cooldown.update_rate_limit(message) is not None:
             return
 
-        matches = list(LINK_RE.finditer(message.content or ""))
-        if not matches or len(matches) > self.cfg.media_max_links:
+        raw_links = [match.group(0) for match in LINK_RE.finditer(message.content or "")]
+        if not raw_links:
+            # Links that arrive only as an auto-embed (no visible content).
+            raw_links = [str(embed.url) for embed in message.embeds if getattr(embed, "url", None)]
+        if not raw_links or len(raw_links) > self.cfg.media_max_links:
             return
 
-        for match in matches:
-            raw = match.group(0)
-            _, mods, lang = parse_modifiers(message.content[: match.start()])
+        content = message.content or ""
+        for raw in raw_links:
+            position = content.find(raw)
+            _, mods, lang = parse_modifiers(content[:position] if position >= 0 else "")
             try:
                 canonical = await canonicalize(
                     raw,

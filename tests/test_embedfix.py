@@ -4,6 +4,7 @@ from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
 from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
 from zene_core.embedfix.proxy_adapters import (
+    extract_item_url,
     facebed_url,
     ig_shortcode,
     pick_best_mp4,
@@ -70,6 +71,15 @@ class ProxyTests(unittest.TestCase):
             "https://www.facebed.com/reel/1811869953192242",
         )
         self.assertIsNone(facebed_url("https://x.com/user/status/1"))
+
+    def test_extract_item_url(self) -> None:
+        item = {
+            "type": "video",
+            "url": "https://video.twimg.com/a/vid/avc1/480x854/x.mp4?tag=29",
+            "variants": [],
+        }
+        self.assertEqual(extract_item_url(item, frozenset({"x.com"}), frozenset()), item["url"])
+        self.assertIsNone(extract_item_url({"url": "http://bad/x"}, frozenset(), frozenset()))
 
     def test_tiktok_video_id(self) -> None:
         self.assertEqual(
