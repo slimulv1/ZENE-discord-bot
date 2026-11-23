@@ -392,7 +392,20 @@ rồi bỏ đi như bản trước.
 
 **Không cần** thêm `pydantic`/`httpx`: dataclass + `net.py` hiện tại đã đủ, tránh phình dependency trên ARM.
 
-## 11. Câu hỏi còn mở
+## 11. Kết quả test link thật
+
+| Link | `MetaAdapter` | `YtDlpAdapter` | Kết luận |
+|---|---|---|---|
+| Instagram post `DgC0zNhIwR-` | `image`, 1 ảnh CDN `cdninstagram.com`, title "Jia Jia on Instagram…" | không thử | ✅ OK |
+| Instagram reel `Dfy-oKtq9iO` | `image`, 1 thumbnail CDN, title "TEN on Instagram…" | lỗi: login/rate-limit, `kind=none` | ⚠️ chỉ ảnh thumbnail; muốn video cần cookies IG |
+| X status `2124470814…` | `image`, 1 ảnh `pbs.twimg.com` (amplify_video_thumb) | `image`, title đầy đủ + thumb `.jpg?name=orig` | ⚠️ X không lộ `og:video` cho bot công khai; chỉ thumbnail |
+
+Kiểm tra HTML: cả 3 link **không có `og:video`/`twitter:player`** hợp lệ, nên `MetaAdapter`
+không thể trả video trực tiếp. `yt-dlp` metadata-only cũng không giải quyết được reel IG
+(không có cookie) và vẫn trả thumbnail cho X. Muốn video thật cần Phase 2: tải có
+cookies/FFmpeg (rủi ro ToS) — hiện **chưa implement**.
+
+## 12. Câu hỏi còn mở
 
 - TikTok oEmbed có trả thumbnail miễn phí không? (docs bị chặn → **unknown**)
 - Instagram/Facebook cần cookie đăng nhập cho bài public không? (**inferred**: có thể, tuỳ thời điểm)
