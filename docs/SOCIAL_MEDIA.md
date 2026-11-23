@@ -521,7 +521,7 @@ Cần mở rộng `ProbeResult.kind` thêm `"link"` cho trường hợp facebed 
 
 | Biến | Mặc định | Ý nghĩa |
 |---|---|---|
-| `ZENE_MEDIA_USE_PROXIES` | `false` | Bật ifx/facebed (third-party) |
+| `ZENE_MEDIA_USE_PROXIES` | `true` | Bật adapters proxy/video cùng lúc với link embedding; đặt `false` để chỉ dùng thumbnail |
 | `ZENE_MEDIA_PROXY_HOSTS` | `api.fxtwitter.com,ifx.up.railway.app,facebed.com` | Exact host được phép, không dùng wildcard |
 | `ZENE_MEDIA_FACEBED_HOST` | `facebed.com` | Host rewrite cho Facebook |
 | `ZENE_MEDIA_DIRECT_VIDEO_TTL` | `300` | Cache ngắn vì signed URL có thể hết hạn |

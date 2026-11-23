@@ -394,20 +394,17 @@ tests/                  unit test
 Bot tự nhận link trong tin nhắn và reply lại bằng gallery ảnh/video, thay vì để
 Discord hiển thị preview bị lỗi. Tính năng này **mặc định tắt**.
 
-### Bật trong 2 bước
+### Bật nhanh
 
-Thêm vào file `.env`:
+Chỉ cần khai báo trong file `.env`:
 
 ```
 ZENE_MEDIA_LINKS_ENABLED=true
 ZENE_MEDIA_ALLOWED_DOMAINS=x.com,instagram.com,facebook.com,tiktok.com,youtube.com
 ```
 
-Muốn ưu tiên video thật thì thêm dòng này (không cần yt-dlp):
-
-```
-ZENE_MEDIA_USE_PROXIES=true
-```
+Proxy/video adapters được **bật mặc định** theo đó, không cần cấu hình thêm.
+Nếu chỉ muốn hiển thị thumbnail, thêm `ZENE_MEDIA_USE_PROXIES=false`.
 
 > Điền **tên miền gốc**, không có `www.`. Ví dụ `x.com` chứ không phải `www.x.com`.
 

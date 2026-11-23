@@ -1,5 +1,6 @@
 import unittest
 
+from zene_core.config import Config
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
 from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
@@ -12,6 +13,14 @@ from zene_core.embedfix.proxy_adapters import (
     x_status_parts,
 )
 from zene_core.embedfix.views import build_view
+
+
+class ConfigTests(unittest.TestCase):
+    def test_proxy_enabled_by_default(self) -> None:
+        config = Config.from_env({"DISCORD_TOKEN": "x" * 40})
+        self.assertTrue(config.media_use_proxies)
+        disabled = Config.from_env({"DISCORD_TOKEN": "x" * 40, "ZENE_MEDIA_USE_PROXIES": "false"})
+        self.assertFalse(disabled.media_use_proxies)
 
 
 class ModifierTests(unittest.TestCase):

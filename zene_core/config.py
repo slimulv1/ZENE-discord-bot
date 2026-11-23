@@ -157,7 +157,7 @@ class Config:
     media_suppress: bool = False
     media_use_ytdlp: bool = False
     media_lang: str = "vi"
-    media_use_proxies: bool = False
+    media_use_proxies: bool = True  # enabled together with link embedding by default
     media_proxy_hosts: frozenset[str] = frozenset(
         {"api.fxtwitter.com", "ifx.up.railway.app", "facebed.com", "offload.tnktok.com"}
     )
@@ -256,7 +256,7 @@ class Config:
             media_suppress=_env_bool(env, "ZENE_MEDIA_SUPPRESS", False),
             media_use_ytdlp=_env_bool(env, "ZENE_MEDIA_USE_YTDLP", False),
             media_lang=_clean(env.get("ZENE_MEDIA_LANG")) or "vi",
-            media_use_proxies=_env_bool(env, "ZENE_MEDIA_USE_PROXIES", False),
+            media_use_proxies=_env_bool(env, "ZENE_MEDIA_USE_PROXIES", True),
             media_proxy_hosts=frozenset(
                 host.strip().lower()
                 for host in _env_csv(
