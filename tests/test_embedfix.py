@@ -419,6 +419,16 @@ class ViewTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(view.row.children), 2)
         self.assertIn("1/3", view.text.content)
 
+    async def test_carousel_callback_accepts_single_interaction_arg(self) -> None:
+        # discord.py calls a manually assigned button callback as cb(interaction).
+        view = CarouselView(
+            ("https://pbs.twimg.com/1.jpg", "https://pbs.twimg.com/2.jpg")
+        )
+        interaction = SimpleNamespace(response=SimpleNamespace(edit_message=AsyncMock()))
+        await view.forward.callback(interaction)
+        self.assertEqual(view.index, 1)
+        interaction.response.edit_message.assert_awaited_once()
+
     async def test_carousel_next_switches_image(self) -> None:
         urls = ("https://pbs.twimg.com/1.jpg", "https://pbs.twimg.com/2.jpg")
         view = CarouselView(urls, title="T", context="C")

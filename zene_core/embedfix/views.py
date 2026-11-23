@@ -77,12 +77,12 @@ class CarouselView(discord.ui.LayoutView):
         self.gallery.clear_items()
         self.gallery.add_item(media=self.urls[self.index], spoiler=self.spoiler)
 
-    async def _on_previous(self, interaction, button) -> None:
+    async def _on_previous(self, interaction, button=None) -> None:
         self.index = (self.index - 1) % len(self.urls)
         self._render()
         await interaction.response.edit_message(view=self)
 
-    async def _on_forward(self, interaction, button) -> None:
+    async def _on_forward(self, interaction, button=None) -> None:
         self.index = (self.index + 1) % len(self.urls)
         self._render()
         await interaction.response.edit_message(view=self)
