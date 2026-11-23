@@ -23,6 +23,7 @@ if (-not $env:ZENE_OWNER_IDS) {
     exit 1
 }
 
+$env:ZENE_NSFW_ENABLED = 'false'
 $env:ZENE_MEDIA_LINKS_ENABLED = 'true'
 $env:ZENE_MEDIA_ALLOWED_DOMAINS = 'x.com,instagram.com,facebook.com,tiktok.com,youtube.com'
 $env:ZENE_MEDIA_USE_PROXIES = 'true'

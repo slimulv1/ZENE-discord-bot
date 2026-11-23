@@ -164,6 +164,7 @@ Nếu muốn đổi:
 | Chỉ lấy thumbnail, không tải video | `ZENE_MEDIA_USE_PROXIES` | `false` |
 | Thay đổi cụm domain xử lý | `ZENE_MEDIA_ALLOWED_DOMAINS` | `x.com,instagram.com,...` |
 | Tắt tự nạp meme | `ZENE_RELOAD_ON_CHANGE` | `false` |
+| Bắt lại kiểm tra kênh NSFW | `ZENE_NSFW_ENABLED` | `true` (mặc định script để `false`; ảnh `/code` luôn làm mờ) |
 
 Cách đặt đúng khi dùng script Windows:
 

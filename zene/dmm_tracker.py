@@ -102,7 +102,7 @@ class dmm_tracker(commands.Cog):
 
         code_translator = GoogleTranslator(source="ja", target="vi")
 
-        if ctx.channel.is_nsfw():
+        if not self.bot.config.nsfw_enabled or ctx.channel.is_nsfw():
             embed_Image = image_url
 
             code_embed = discord.Embed(

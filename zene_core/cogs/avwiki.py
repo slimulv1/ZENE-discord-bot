@@ -1,8 +1,15 @@
-"""NSFW-only /code and /idol commands backed by av-wiki.net REST API."""
+"""/code and /idol commands backed by av-wiki.net REST API.
+
+NSFW channel gating is controlled by ``ZENE_NSFW_ENABLED``. /code images are
+always blurred and sent as spoiler attachments regardless of that setting.
+"""
 
 from __future__ import annotations
 
+import asyncio
 import contextlib
+import logging
+from io import BytesIO
 
 import discord
 from discord import app_commands
@@ -16,8 +23,35 @@ from ..avwiki import (
     search_idol,
     to_vietnamese,
 )
+from ..net import get_session
+
+log = logging.getLogger(__name__)
 
 NOT_NSFW = "Lệnh này chỉ dùng được trong kênh NSFW."
+
+
+async def _blurred_file(url: str) -> discord.File | None:
+    """Fetch an image and return it blurred as a spoiler attachment."""
+    from PIL import Image, ImageFilter
+
+    try:
+        session = await get_session()
+        async with session.get(url, timeout=15) as response:
+            response.raise_for_status()
+            raw = await response.read()
+
+        def blur() -> BytesIO:
+            with Image.open(BytesIO(raw)) as image:
+                result = image.convert("RGB").filter(ImageFilter.GaussianBlur(12))
+                out = BytesIO()
+                result.save(out, format="JPEG", quality=82)
+                out.seek(0)
+                return out
+
+        return discord.File(await asyncio.to_thread(blur), filename="code.jpg", spoiler=True)
+    except Exception as exc:  # noqa: BLE001 - image is optional; keep the text result
+        log.warning("không làm mờ được ảnh /code: %s", exc)
+        return None
 
 
 def _clip(text: str, size: int = 900) -> str:
@@ -27,9 +61,9 @@ def _clip(text: str, size: int = 900) -> str:
 class AvWikiCog(commands.Cog):
     def __init__(self, bot) -> None:
         self.bot = bot
-        # Mark the slash form NSFW; the prefix form is gated at runtime below.
-        self.code.app_command.nsfw = True
-        self.idol.app_command.nsfw = True
+        # Discord-side NSFW marker follows the operator setting.
+        self.code.app_command.nsfw = bot.config.nsfw_enabled
+        self.idol.app_command.nsfw = bot.config.nsfw_enabled
 
     @commands.hybrid_command(
         name="code",
@@ -42,7 +76,7 @@ class AvWikiCog(commands.Cog):
         with contextlib.suppress(discord.HTTPException, discord.ClientException):
             await ctx.defer()
         channel = getattr(ctx, "channel", None)
-        if channel is None or not channel.is_nsfw():
+        if self.bot.config.nsfw_enabled and (channel is None or not channel.is_nsfw()):
             await self.bot.safe_send(ctx, NOT_NSFW)
             return
         results = await search_code(arg)
@@ -85,10 +119,18 @@ class AvWikiCog(commands.Cog):
             )
             if image:
                 source_note += " • Ảnh: FANZA"
+
+        attachment = None
         if image.startswith(("http://", "https://")):
-            embed.set_image(url=image)
+            attachment = await _blurred_file(image)
+            if attachment is not None:
+                embed.set_image(url=f"attachment://{attachment.filename}")
+                source_note += " • ảnh đã làm mờ"
         embed.set_footer(text=source_note)
-        await self.bot.safe_send(ctx, embed=embed)
+        if attachment is None:
+            await self.bot.safe_send(ctx, embed=embed)
+        else:
+            await self.bot.safe_send(ctx, embed=embed, file=attachment)
 
     @commands.hybrid_command(
         name="idol",
@@ -101,7 +143,7 @@ class AvWikiCog(commands.Cog):
         with contextlib.suppress(discord.HTTPException, discord.ClientException):
             await ctx.defer()
         channel = getattr(ctx, "channel", None)
-        if channel is None or not channel.is_nsfw():
+        if self.bot.config.nsfw_enabled and (channel is None or not channel.is_nsfw()):
             await self.bot.safe_send(ctx, NOT_NSFW)
             return
         result = await search_idol(arg)

@@ -39,7 +39,8 @@ DMM_AFFILIATE_ID=
 # Privileged intents (off by default)
 ZENE_MEMBERS_INTENT=false
 ZENE_IGNORE_BOTS=true
-ZENE_NSFW_ENABLED=true
+# false = bot không kiểm tra kênh NSFW (trả lời mọi nơi). Ảnh /code vẫn luôn bị làm mờ.
+ZENE_NSFW_ENABLED=false
 
 # Daily digest (0 = disabled). Hour/minute are in the timezone below.
 ZENE_DIGEST_CHANNEL_ID=0

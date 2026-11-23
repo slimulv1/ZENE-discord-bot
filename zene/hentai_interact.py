@@ -53,7 +53,7 @@ class hentai_random(commands.Cog):
         if number > 10:
             await ctx.send(warning)
             return
-        if number <= 0 or not ctx.channel.is_nsfw():
+        if number <= 0 or (self.bot.config.nsfw_enabled and not ctx.channel.is_nsfw()):
             await ctx.send(nsfw_direct)
             return
         for _ in range(number):
@@ -66,7 +66,7 @@ class hentai_random(commands.Cog):
         if number > 10:
             await ctx.send(warning)
             return
-        if number <= 0 or not ctx.channel.is_nsfw():
+        if number <= 0 or (self.bot.config.nsfw_enabled and not ctx.channel.is_nsfw()):
             await ctx.send(nsfw_direct)
             return
         for _ in range(number):
@@ -78,7 +78,7 @@ class hentai_random(commands.Cog):
         if number > 10:
             await ctx.send(warning)
             return
-        if number <= 0 or not ctx.channel.is_nsfw():
+        if number <= 0 or (self.bot.config.nsfw_enabled and not ctx.channel.is_nsfw()):
             await ctx.send(nsfw_direct)
             return
         for _ in range(number):
@@ -90,7 +90,7 @@ class hentai_random(commands.Cog):
         if number > 10:
             await ctx.send(warning)
             return
-        if number <= 0 or not ctx.channel.is_nsfw():
+        if number <= 0 or (self.bot.config.nsfw_enabled and not ctx.channel.is_nsfw()):
             await ctx.send(nsfw_direct)
             return
         for _ in range(number):
@@ -99,7 +99,7 @@ class hentai_random(commands.Cog):
 
     @commands.command()
     async def henbj(self, ctx):
-        if not ctx.channel.is_nsfw():
+        if self.bot.config.nsfw_enabled and not ctx.channel.is_nsfw():
             await ctx.send(nsfw_direct)
             return
         image = await _image_url("https://api.waifu.pics/nsfw/blowjob")

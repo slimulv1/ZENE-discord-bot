@@ -226,6 +226,8 @@ class EmbedFixCog(commands.Cog):
             await self._replace(ctx.message)
 
     def _nsfw_allowed(self, ctx: LinkContext, result: ProbeResult) -> bool:
+        if not self.cfg.nsfw_enabled:
+            return True
         sensitive = result.nsfw is True or (result.nsfw is None and self.cfg.media_strict_nsfw)
         return not sensitive or bool(ctx.message.channel.is_nsfw())
 

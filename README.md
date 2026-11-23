@@ -21,7 +21,7 @@
 
 - Gửi meme ảnh/video khi bạn gõ đúng cụm, ví dụ gõ `siuu` là hiện video.
 - Xem avatar, ghép avatar vào ảnh hài.
-- Tra cứu mã phim / tên diễn viên (chỉ trong kênh NSFW).
+- Tra cứu mã phim / tên diễn viên (ảnh `/code` luôn được làm mờ).
 - Xem giá xăng, âm lịch, dịch tiếng, Wikipedia.
 - Tự chạy suốt ngày đêm, tự khởi động lại khi bị lỗi.
 
@@ -99,8 +99,9 @@ Một số lệnh dùng được **cả hai cách** — mình ghi là "cả hai"
 | `/health` | Xem bot có khỏe không (uptime, ping, số server, lỗi) |
 | `/idol <tên diễn viên>` | Xem thông tin diễn viên và vài tác phẩm |
 
-`/code` và `/idol` **chỉ dùng trong kênh NSFW** (kênh bạn bật chế độ NSFW trong
-Discord). Nếu thử ở kênh thường, bot sẽ nhắc bạn đổi kênh.
+`/code` và `/idol` dùng được **mọi kênh** với cấu hình mặc định của script Windows
+(`ZENE_NSFW_ENABLED=false`). Ảnh `/code` luôn được làm mờ + gắn spoiler. Muốn bắt
+buộc kênh NSFW như cũ, đặt `ZENE_NSFW_ENABLED=true`.
 
 ### 🧰 Lệnh tiện ích
 
@@ -129,7 +130,8 @@ Discord). Nếu thử ở kênh thường, bot sẽ nhắc bạn đổi kênh.
 
 ### 🔞 Lệnh NSFW
 
-Chỉ dùng trong kênh đã bật NSFW:
+Mặc định script Windows đặt `ZENE_NSFW_ENABLED=false` → các lệnh dưới dùng được mọi
+kênh. Đặt lại `true` nếu bạn muốn chỉ dùng trong kênh đã bật NSFW:
 
 | Gõ | Bot làm gì |
 |---|---|
@@ -181,7 +183,7 @@ Toàn bộ nội dung này nằm trong một file duy nhất: `zene/data/memes.j
      Muốn bot xoá link và gửi lại mang tên bạn, tick thêm *Manage Webhooks* — xem
      [2 link mời sẵn](docs/WINDOWS_SETUP.md#33-mời-bot-vào-server).
 5. Copy cái link hiện ra, mở trình duyệt, chọn server của bạn → **Add Bot**.
-6. Vào settings kênh định dùng `code`/`idol`/`hen...` → bật **NSFW**.
+6. Không bắt buộc bật NSFW cho kênh (script mặc định `ZENE_NSFW_ENABLED=false`). Ảnh `/code` vẫn tự làm mờ.
 7. Lấy ID của bạn: bật **Developer Mode** trong Discord, chuột phải vào tên bạn
    → **Copy User ID**, rồi dán vào `ZENE_OWNER_IDS` trong `.env`.
 
@@ -346,7 +348,7 @@ Log nằm ở `logs/zene.log`. Bot tự xóa log cũ và tự che token khi ghi 
 | `403 Missing Permissions` khi gửi link | Bot thiếu Manage Webhooks/Manage Messages | Mời lại bot bằng link "đầy đủ" trong [hướng dẫn Windows](docs/WINDOWS_SETUP.md#33-mời-bot-vào-server) |
 | `LoginFailure` | Token sai hoặc cũ | Reset Token, dán token mới vào `.env` |
 | Không thấy lệnh `/` | Bot thiếu quyền app command | Tick `applications.commands` rồi mời bot lại; đợi vài phút |
-| `/code` bảo dùng kênh NSFW | Kênh đó chưa bật NSFW | Settings kênh → bật NSFW |
+| `/code` bảo dùng kênh NSFW | `ZENE_NSFW_ENABLED=true` | Đặt `false` trong script khởi động |
 | Gõ `z/...` không được | Prefix sai hoặc chưa bật intent | Kiểm tra `ZENE_PREFIXES` và Message Content Intent |
 | `z/code` không có ảnh | av-wiki không có ảnh, bot đang fallback | Cần điền `DMM_API_ID` và `DMM_AFFILIATE_ID` để lấy ảnh từ FANZA |
 | Dịch ra nguyên tiếng Nhật | Google chặn tạm (429) | Đợi rồi thử lại |
@@ -476,7 +478,7 @@ Ví dụ: `文 es: || https://x.com/user/status/123`
 
 - Mỗi người chỉ được kích hoạt 3 giây/lần; tối đa 3 link trong một tin nhắn.
 - Link phải nằm trong `ZENE_MEDIA_ALLOWED_DOMAINS`, nếu không bot bỏ qua.
-- Ảnh/video nhạy cảm chỉ hiện trong kênh đã bật NSFW.
+- Với `ZENE_NSFW_ENABLED=false`, media từ link hiển thị mọi kênh; đặt `true` nếu muốn chỉ hiện trong kênh NSFW.
 - Bot bỏ qua tin nhắn từ bot khác, và tự bỏ qua link đã xử lý trong 5 phút.
 - Tiêu đề/nội dung link **tự động dịch sang tiếng Việt**. Tắt bằng `ZENE_MEDIA_AUTO_TRANSLATE=false`.
 

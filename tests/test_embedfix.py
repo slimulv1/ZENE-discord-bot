@@ -222,13 +222,16 @@ class NsfwGuardTests(unittest.TestCase):
         result = ProbeResult(
             "gallery", "", "", ("https://ifx.up.railway.app/p/x/media/0",), "", False, ""
         )
-        fake_self = SimpleNamespace(cfg=SimpleNamespace(media_strict_nsfw=True))
+        fake_self = SimpleNamespace(cfg=SimpleNamespace(nsfw_enabled=True, media_strict_nsfw=True))
         ctx = SimpleNamespace(
             message=SimpleNamespace(channel=SimpleNamespace(is_nsfw=lambda: False))
         )
         self.assertTrue(EmbedFixCog._nsfw_allowed(fake_self, ctx, result))
         unknown = ProbeResult("gallery", "", "", ("https://x/",), "", None, "")
         self.assertFalse(EmbedFixCog._nsfw_allowed(fake_self, ctx, unknown))
+
+        relaxed = SimpleNamespace(cfg=SimpleNamespace(nsfw_enabled=False, media_strict_nsfw=True))
+        self.assertTrue(EmbedFixCog._nsfw_allowed(relaxed, ctx, unknown))
 
 
 class GuardTests(unittest.IsolatedAsyncioTestCase):

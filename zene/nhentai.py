@@ -23,7 +23,7 @@ class nhentai(commands.Cog):
     @commands.command(name="nhentai")
     @commands.cooldown(1, 5, commands.BucketType.user)
     async def nhentai(self, ctx, *, arg: str):
-        if not ctx.channel.is_nsfw():
+        if self.bot.config.nsfw_enabled and not ctx.channel.is_nsfw():
             await ctx.send("Qua kênh NSFW mà xài")
             return
         try:
@@ -42,7 +42,7 @@ class nhentai(commands.Cog):
     @commands.command(name="search")
     @commands.cooldown(1, 10, commands.BucketType.user)
     async def search(self, ctx, *, arg: str):
-        if not ctx.channel.is_nsfw():
+        if self.bot.config.nsfw_enabled and not ctx.channel.is_nsfw():
             await ctx.send("Qua kênh NSFW mà xài")
             return
         try:
