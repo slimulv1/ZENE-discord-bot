@@ -68,6 +68,18 @@ Nhớ điền luôn `ZENE_OWNER_IDS=` bằng ID Discord của bạn để dùng 
 > **🔒 Token là bí mật.** Đây là nơi duy nhất bạn dán token. Đừng commit file `.env`,
 > đừng gửi token cho ai, và nếu lỡ lộ thì Reset Token trong Discord ngay.
 
+**Khởi động nhanh trên Windows:** chạy `.\start.ps1` trong thư mục dự án. Script đã
+thiết lập sẵn các biến môi trường và chỉ **hỏi token ẩn khi chạy** — token không được
+lưu vào file, nên lần sau bạn không phải dán lại cả lệnh dài:
+
+```powershell
+cd "C:\Users\slimu\Downloads\Zene Bot\ZENE-discord-bot"
+.\start.ps1
+```
+
+Nếu PowerShell chặn chạy script, dùng:
+`powershell -NoProfile -ExecutionPolicy Bypass -File .\start.ps1`
+
 Muốn bot tự chạy lại khi tắt terminal? Xem mục 🍓 4 — cách systemd ở đó dùng được
 cho cả máy Linux x86.
 
