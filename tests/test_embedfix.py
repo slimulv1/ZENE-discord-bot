@@ -3,7 +3,8 @@ import tempfile
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
-from unittest.mock import patch
+from typing import ClassVar
+from unittest.mock import AsyncMock, patch
 
 from zene_core import content
 from zene_core.assets import AssetRegistry
@@ -16,6 +17,7 @@ from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
 from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
 from zene_core.embedfix.proxy_adapters import (
+    IfxAdapter,
     extract_item_url,
     facebed_url,
     ig_shortcode,
@@ -122,6 +124,58 @@ class ReloadDataTests(unittest.TestCase):
             content.ANXIN_STORIES[:] = original["ANXIN_STORIES"]
             content.CODE_STORIES[:] = original["CODE_STORIES"]
             content.FOLO_TEXT = original["FOLO_TEXT"]
+
+
+class IfxFailFastTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self) -> None:
+        from zene_core.embedfix import proxy_adapters
+
+        proxy_adapters._IFX_MISS_CACHE.clear()
+
+    async def test_500_on_first_index_stops_immediately(self) -> None:
+        class Response:
+            status = 500
+            headers: ClassVar[dict[str, str]] = {}
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+        class Session:
+            def __init__(self) -> None:
+                self.calls: list[str] = []
+
+            def head(self, url: str, **kwargs):
+                self.calls.append(url)
+                return Response()
+
+        session = Session()
+        with patch(
+            "zene_core.embedfix.proxy_adapters.get_session",
+            new=AsyncMock(return_value=session),
+        ):
+            result = await IfxAdapter().probe(
+                "https://instagram.com/reel/DgDG_dropmP/",
+                {"instagram.com"},
+                25.0,
+                proxy_hosts={"ifx.up.railway.app"},
+            )
+        self.assertEqual(result.kind, "none")
+        self.assertEqual(len(session.calls), 1)
+        # Negative cache: a repeated link must not hit the dead proxy again.
+        with patch(
+            "zene_core.embedfix.proxy_adapters.get_session",
+            new=AsyncMock(return_value=session),
+        ):
+            await IfxAdapter().probe(
+                "https://instagram.com/reel/DgDG_dropmP/",
+                {"instagram.com"},
+                25.0,
+                proxy_hosts={"ifx.up.railway.app"},
+            )
+        self.assertEqual(len(session.calls), 1)
 
 
 class RouterTests(unittest.TestCase):
@@ -246,7 +300,7 @@ class GuardTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_canonicalize_strips_instagram_evlk(self) -> None:
         url = await canonicalize(
-            "https://www.instagram.com/p/Df_8LXvH7xO/?utm_source=ig_web_copy_link&evlk=NTc4MTIwNjQ2YQ==",
+            "https://www.instagram.com/p/Df_8LXvH7xO/?utm_source=ig_web_copy_link&evlk=NTc4MTIwNjQ2YQ==&cnvx=NTc4MTIwNjQ2YQ==",
             {"instagram.com"},
         )
         self.assertEqual(url, "https://instagram.com/p/Df_8LXvH7xO/")

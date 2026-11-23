@@ -8,6 +8,7 @@ import logging
 import re
 from collections.abc import Iterable
 
+from cachetools import TTLCache
 from yarl import URL
 
 from ..net import fetch_json, fetch_text, get_session
@@ -16,6 +17,9 @@ from .guards import is_asset_url
 from .models import ProbeResult
 
 log = logging.getLogger(__name__)
+
+# Short-lived negative cache: a dead shortcode should not cost 5s on every resend.
+_IFX_MISS_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
 
 X_STATUS_RE = re.compile(r"^/([^/]+)/status/(\d+)")
 IG_SHORTCODE_RE = re.compile(r"^/(?:p|reel|reels)/([^/?]+)")
@@ -163,16 +167,24 @@ class IfxAdapter:
         max_bytes: int = 8 * 1024 * 1024,
     ) -> ProbeResult:
         shortcode = ig_shortcode(url)
-        if not shortcode:
+        if not shortcode or shortcode in _IFX_MISS_CACHE:
             return ProbeResult("none", "", "", page_url=url)
         session = await get_session()
+        # We only need response headers; waiting 25s per index made a single
+        # broken reel block the worker for ~86s (10 sequential HEADs).
+        head_timeout = min(timeout, 5.0)
+        proxy_down = False
 
         async def head(index: int) -> tuple[str, bool] | None:
+            nonlocal proxy_down
             media_url = f"https://ifx.up.railway.app/p/{shortcode}/media/{index}"
             try:
                 async with session.head(
-                    media_url, allow_redirects=True, timeout=timeout
+                    media_url, allow_redirects=True, timeout=head_timeout
                 ) as response:
+                    if response.status >= 500:
+                        proxy_down = True
+                        return None
                     content_type = response.headers.get("Content-Type") or ""
                     if response.status != 200 or not content_type.startswith(("video/", "image/")):
                         return None
@@ -189,15 +201,24 @@ class IfxAdapter:
                 log.debug("ifx probe failed: %s", exc)
                 return None
 
-        # First 3 indices in parallel; typical posts stop there.
-        gathered = await asyncio.gather(
-            *(head(index) for index in range(3)), return_exceptions=True
-        )
-        collected: list[tuple[str, bool]] = [item for item in gathered if isinstance(item, tuple)]
-        for index in range(3, 10):
-            item = await head(index)
-            if item:
-                collected.append(item)
+        # media/0 exists whenever ifx has anything. Fail fast instead of
+        # probing 9 more indices through a 500-ing proxy.
+        first = await head(0)
+        if first is None or proxy_down:
+            _IFX_MISS_CACHE[shortcode] = True
+            return ProbeResult("none", "", "", page_url=url)
+
+        collected: list[tuple[str, bool]] = [first]
+        # Remaining indices in small parallel batches; stop at first empty one.
+        for start in range(1, 10, 3):
+            batch = await asyncio.gather(
+                *(head(index) for index in range(start, min(start + 3, 10))),
+                return_exceptions=True,
+            )
+            items = [item for item in batch if isinstance(item, tuple)]
+            if proxy_down or not items:
+                break
+            collected.extend(items)
         if not collected:
             return ProbeResult("none", "", "", page_url=url)
         has_video = any(is_video for _, is_video in collected)

@@ -135,6 +135,37 @@ class EmbedFixCog(commands.Cog):
         best: ProbeResult | None = None
         started = time.monotonic()
         ran = 0
+
+        # Instagram: ifx often 500s on reel shortcodes while the generic meta
+        # probe already has og:image. Run both at once and take the richer hit.
+        if names == ("ifx", "meta") and {"ifx", "meta"} <= self.adapter_pool.keys():
+            ifx, meta = await asyncio.gather(
+                self.adapter_pool["ifx"].probe(
+                    ctx.canonical,
+                    allowed,
+                    self.cfg.media_timeout,
+                    proxy_hosts=proxies,
+                    max_bytes=self.cfg.media_max_bytes,
+                ),
+                self.adapter_pool["meta"].probe(
+                    ctx.canonical,
+                    allowed,
+                    self.cfg.media_timeout,
+                    proxy_hosts=proxies,
+                    max_bytes=self.cfg.media_max_bytes,
+                ),
+                return_exceptions=True,
+            )
+            ran = 2
+            results = [item for item in (ifx, meta) if isinstance(item, ProbeResult)]
+            best = (
+                next((item for item in results if item.kind in {"video", "gallery"}), None)
+                or next((item for item in results if item.kind == "image"), None)
+                or next((item for item in results if item.kind == "link"), None)
+            )
+            self._record_probe(started, ran)
+            return best
+
         for name in names:
             adapter = self.adapter_pool.get(name)
             if adapter is None:

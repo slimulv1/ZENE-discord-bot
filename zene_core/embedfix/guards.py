@@ -20,6 +20,7 @@ TRACKING_KEYS = frozenset(
     {
         "igshid",
         "evlk",
+        "cnvx",
         "fbclid",
         "gclid",
         "gbraid",
