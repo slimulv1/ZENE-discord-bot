@@ -418,6 +418,14 @@ Khi có người gửi link, bot sẽ lấy ảnh/video từ meta tag của tran
 
 Mẹo đặt trước link: `文` dịch, `||` spoiler, `~` ẩn quote, `^` hiện parent, `es:` chọn ngôn ngữ.
 
+Muốn video thật (X / Instagram / Facebook) không cần yt-dlp, thêm:
+
+```
+ZENE_MEDIA_USE_PROXIES=true
+```
+
+Bot sẽ dùng API công khai/proxy embed để lấy URL mp4 trực tiếp rồi gửi qua gallery.
+
 > Cần **discord.py >= 2.6**. Chi tiết thiết kế tại
 > [docs/SOCIAL_MEDIA.md](docs/SOCIAL_MEDIA.md).
 

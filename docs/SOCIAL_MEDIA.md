@@ -1,6 +1,7 @@
 # Thiết kế: link social media → ảnh/video trong Discord
 
-> **Phase 1 đã implement** (`zene_core/embedfix/` + `zene_core/cogs/embedfix.py`):
+> **Phase 1 + video proxy đã implement** (`zene_core/embedfix/` + `zene_core/cogs/embedfix.py`):
+> FxEmbed / ifx / facebed adapters trả mp4 trực tiếp (verify: X, IG reels, FB reel đều `video`).
 > oEmbed/meta tags → Components V2 gallery, modifier, suppress, cache, breaker.
 > yt-dlp adapter có sẵn nhưng mặc định tắt (`ZENE_MEDIA_USE_YTDLP=false`).
 > Mục tiêu: bot tự nhận link TikTok / X / Instagram / Facebook do người dùng gửi
@@ -445,10 +446,12 @@ opts = {
     "ffmpeg_location": cfg.media_ffmpeg_path or None,
 }
 
+
 def work():
     with yt_dlp.YoutubeDL(opts) as ydl:
         info = ydl.extract_info(url, download=True)
         return Path(ydl.prepare_filename(info))
+
 
 path = await asyncio.wait_for(asyncio.to_thread(work), timeout=cfg.media_timeout)
 if path.stat().st_size > cfg.media_max_bytes:

@@ -16,6 +16,12 @@ from ..embedfix.adapters import MetaAdapter, YtDlpAdapter
 from ..embedfix.guards import canonicalize, url_hash
 from ..embedfix.models import LinkContext, ProbeResult
 from ..embedfix.modifiers import LINK_RE, parse_modifiers
+from ..embedfix.proxy_adapters import (
+    FacebedAdapter,
+    FxEmbedAdapter,
+    IfxAdapter,
+    XDirectAdapter,
+)
 from ..embedfix.views import build_view
 
 log = logging.getLogger(__name__)
@@ -28,8 +34,13 @@ class EmbedFixCog(commands.Cog):
         self.queue: asyncio.Queue[LinkContext] = asyncio.Queue(maxsize=cfg.media_queue_size)
         self.semaphore = asyncio.Semaphore(cfg.media_workers)
         self.cache: TTLCache = TTLCache(maxsize=512, ttl=max(1, cfg.media_cache_ttl))
+        self.video_cache: TTLCache = TTLCache(maxsize=512, ttl=max(60, cfg.media_direct_video_ttl))
         self.cooldown = commands.CooldownMapping.from_cooldown(1, 3.0, commands.BucketType.user)
         self.adapters = [MetaAdapter()]
+        if cfg.media_use_proxies:
+            self.adapters.extend(
+                [FxEmbedAdapter(), XDirectAdapter(), IfxAdapter(), FacebedAdapter()]
+            )
         if cfg.media_use_ytdlp:
             self.adapters.append(YtDlpAdapter())
         self._task: asyncio.Task | None = None
@@ -103,15 +114,27 @@ class EmbedFixCog(commands.Cog):
 
     async def _probe(self, ctx: LinkContext) -> ProbeResult | None:
         allowed: Iterable[str] = self.cfg.media_allowed_domains
+        proxies: Iterable[str] = self.cfg.media_proxy_hosts
+        best: ProbeResult | None = None
         for adapter in self.adapters:
-            result = await adapter.probe(ctx.canonical, allowed, self.cfg.media_timeout)
-            if result.has_media:
+            result = await adapter.probe(
+                ctx.canonical,
+                allowed,
+                self.cfg.media_timeout,
+                proxy_hosts=proxies,
+                max_bytes=self.cfg.media_max_bytes,
+            )
+            if result.kind in {"video", "gallery"}:
                 return result
-        return None
+            if (result.kind == "image" and (best is None or best.kind in {"none", "link"})) or (
+                result.kind == "link" and best is None
+            ):
+                best = result
+        return best
 
     async def _process(self, ctx: LinkContext) -> None:
         key = url_hash(ctx.canonical)
-        result = self.cache.get(key)
+        result = self.video_cache.get(key) or self.cache.get(key)
         if result is None:
             result = await self._probe(ctx)
             if result is None:
@@ -120,7 +143,15 @@ class EmbedFixCog(commands.Cog):
                 )
                 self.bot.stats["embedfix_no_media"] += 1
                 return
-            self.cache[key] = result
+            if result.kind in {"video", "gallery"}:
+                self.video_cache[key] = result
+            else:
+                self.cache[key] = result
+
+        if result.kind == "link":
+            await ctx.message.reply(content=result.page_url, mention_author=False)
+            self.bot.stats["embedfix_link_embed"] += 1
+            return
 
         if not self._nsfw_allowed(ctx, result):
             return
@@ -152,6 +183,8 @@ class EmbedFixCog(commands.Cog):
             await self._suppress(ctx.message)
         await ctx.message.reply(view=view, mention_author=False)
         self.bot.stats["embedfix_ok"] += 1
+        if result.kind in {"video", "gallery"}:
+            self.bot.stats["embedfix_video_ok"] += 1
 
         if self.cfg.media_mode == "replace":
             await self._replace(ctx.message)

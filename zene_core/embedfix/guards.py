@@ -107,7 +107,11 @@ async def canonicalize(
     return str(clean)
 
 
-def is_asset_url(url: str, allowed_domains: Iterable[str]) -> bool:
+def is_asset_url(
+    url: str,
+    allowed_domains: Iterable[str],
+    proxy_hosts: Iterable[str] = (),
+) -> bool:
     """Accept only direct https asset URLs (or attachment://) for MediaGallery."""
     if url.startswith("attachment://"):
         return True
@@ -121,7 +125,8 @@ def is_asset_url(url: str, allowed_domains: Iterable[str]) -> bool:
     if _is_ip(host):
         return False
     allowed = {item.lower().lstrip(".") for item in allowed_domains if item}
-    return registrable(host) in allowed or host.endswith(ASSET_SUFFIXES)
+    exact = {item.lower().rstrip(".") for item in proxy_hosts if item}
+    return registrable(host) in allowed or host in exact or host.endswith(ASSET_SUFFIXES)
 
 
 def url_hash(url: str) -> str:

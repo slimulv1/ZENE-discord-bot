@@ -41,6 +41,8 @@ class MetaAdapter:
         url: str,
         allowed_domains: Iterable[str],
         timeout: float,
+        proxy_hosts: Iterable[str] = (),
+        max_bytes: int = 8 * 1024 * 1024,
     ) -> ProbeResult:
         host = URL(url).host or ""
         html = await fetch_text(url, name=f"embedfix:{registrable(host)}", timeout=timeout)
@@ -67,7 +69,7 @@ class MetaAdapter:
         candidates = videos + images
 
         def valid(item: str | None) -> bool:
-            return bool(item) and is_asset_url(str(item), allowed_domains)
+            return bool(item) and is_asset_url(str(item), allowed_domains, proxy_hosts)
 
         media = tuple(dict.fromkeys(str(item) for item in candidates if valid(item)))
         has_video = any(valid(item) for item in videos)
@@ -94,6 +96,8 @@ class YtDlpAdapter:
         url: str,
         allowed_domains: Iterable[str],
         timeout: float,
+        proxy_hosts: Iterable[str] = (),
+        max_bytes: int = 8 * 1024 * 1024,
     ) -> ProbeResult:
         def work() -> dict:
             import yt_dlp
@@ -114,7 +118,7 @@ class YtDlpAdapter:
         if not thumb and thumbnails and isinstance(thumbnails[-1], dict):
             thumb = thumbnails[-1].get("url")
         media: tuple[str, ...] = ()
-        if thumb and is_asset_url(str(thumb), allowed_domains):
+        if thumb and is_asset_url(str(thumb), allowed_domains, proxy_hosts):
             media = (str(thumb),)
         return ProbeResult(
             "image" if media else "none",

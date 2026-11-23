@@ -19,7 +19,7 @@ class LinkContext:
 
 @dataclass(frozen=True, slots=True)
 class ProbeResult:
-    kind: Literal["image", "video", "gallery", "none"]
+    kind: Literal["image", "video", "gallery", "link", "none"]
     title: str
     author: str
     media_urls: tuple[str, ...] = ()
