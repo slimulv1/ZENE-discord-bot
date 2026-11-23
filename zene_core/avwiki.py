@@ -104,6 +104,14 @@ async def to_vietnamese(text: str) -> str:
     return result
 
 
+_VI_MARKS = set("ăâđêôơưĂÂĐÊÔƠƯàáảãạằắẳẵặầấẩẫậềếểễệìíỉĩịòóỏõọồốổỗộờởỡớợùúủũụừửữựỳýỷỹỵ")
+
+
+def looks_vietnamese(text: str) -> bool:
+    """Cheap heuristic to skip translation of text already in Vietnamese."""
+    return any(char in _VI_MARKS for char in text[:500])
+
+
 def clean_title(text: str) -> str:
     """Drop the site's boilerplate tail from post titles."""
     return re.sub(r"\s*に出てるAV女優名まとめ\s*$", "", text or "").strip()

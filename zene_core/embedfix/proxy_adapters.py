@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import html
 import logging
 import re
@@ -165,9 +166,8 @@ class IfxAdapter:
         if not shortcode:
             return ProbeResult("none", "", "", page_url=url)
         session = await get_session()
-        collected: list[tuple[str, bool]] = []
-        misses = 0
-        for index in range(10):
+
+        async def head(index: int) -> tuple[str, bool] | None:
             media_url = f"https://ifx.up.railway.app/p/{shortcode}/media/{index}"
             try:
                 async with session.head(
@@ -175,25 +175,29 @@ class IfxAdapter:
                 ) as response:
                     content_type = response.headers.get("Content-Type") or ""
                     if response.status != 200 or not content_type.startswith(("video/", "image/")):
-                        misses += 1
-                        if misses >= 2:
-                            break
-                        continue
+                        return None
                     try:
                         size = int(response.headers.get("Content-Length") or 0)
                     except ValueError:
                         size = 0
                     if size and size > max_bytes:
-                        continue
+                        return None
                     if not is_asset_url(media_url, allowed_domains, proxy_hosts):
-                        continue
-                    collected.append((media_url, content_type.startswith("video/")))
-                    misses = 0
+                        return None
+                    return (media_url, content_type.startswith("video/"))
             except Exception as exc:  # noqa: BLE001 - proxy boundary
                 log.debug("ifx probe failed: %s", exc)
-                misses += 1
-                if misses >= 2:
-                    break
+                return None
+
+        # First 3 indices in parallel; typical posts stop there.
+        gathered = await asyncio.gather(
+            *(head(index) for index in range(3)), return_exceptions=True
+        )
+        collected: list[tuple[str, bool]] = [item for item in gathered if isinstance(item, tuple)]
+        for index in range(3, 10):
+            item = await head(index)
+            if item:
+                collected.append(item)
         if not collected:
             return ProbeResult("none", "", "", page_url=url)
         has_video = any(is_video for _, is_video in collected)

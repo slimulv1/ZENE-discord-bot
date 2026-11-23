@@ -1,5 +1,6 @@
 import unittest
 
+from zene_core.avwiki import looks_vietnamese
 from zene_core.config import Config
 from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
 from zene_core.embedfix.models import ProbeResult
@@ -12,6 +13,7 @@ from zene_core.embedfix.proxy_adapters import (
     tiktok_video_id,
     x_status_parts,
 )
+from zene_core.embedfix.router import route_for
 from zene_core.embedfix.views import build_view
 
 
@@ -26,6 +28,21 @@ class ConfigTests(unittest.TestCase):
             {"DISCORD_TOKEN": "x" * 40, "ZENE_MEDIA_AUTO_TRANSLATE": "false"}
         )
         self.assertFalse(no_translate.media_auto_translate)
+
+
+class RouterTests(unittest.TestCase):
+    def test_x_routes_to_fast_api_first(self) -> None:
+        self.assertEqual(route_for("https://x.com/user/status/1", True)[0], "fxtwitter")
+
+    def test_proxy_off_falls_back_to_meta(self) -> None:
+        self.assertEqual(route_for("https://x.com/user/status/1", False), ("meta",))
+
+    def test_unknown_domain_uses_meta(self) -> None:
+        self.assertEqual(route_for("https://youtube.com/watch?v=1", True), ("meta",))
+
+    def test_vietnamese_detection(self) -> None:
+        self.assertTrue(looks_vietnamese("Xin chào bạn"))
+        self.assertFalse(looks_vietnamese("Hello world"))
 
 
 class ModifierTests(unittest.TestCase):

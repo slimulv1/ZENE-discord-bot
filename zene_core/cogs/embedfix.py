@@ -5,13 +5,14 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
+import time
 from collections.abc import Iterable
 
 import discord
 from cachetools import TTLCache
 from discord.ext import commands
 
-from ..avwiki import to_vietnamese
+from ..avwiki import looks_vietnamese, to_vietnamese
 from ..embedfix.adapters import MetaAdapter, YtDlpAdapter
 from ..embedfix.guards import canonicalize, url_hash
 from ..embedfix.models import LinkContext, ProbeResult
@@ -23,6 +24,7 @@ from ..embedfix.proxy_adapters import (
     TiktokProxyAdapter,
     XDirectAdapter,
 )
+from ..embedfix.router import route_for
 from ..embedfix.views import build_view
 
 log = logging.getLogger(__name__)
@@ -37,19 +39,19 @@ class EmbedFixCog(commands.Cog):
         self.cache: TTLCache = TTLCache(maxsize=512, ttl=max(1, cfg.media_cache_ttl))
         self.video_cache: TTLCache = TTLCache(maxsize=512, ttl=max(60, cfg.media_direct_video_ttl))
         self.cooldown = commands.CooldownMapping.from_cooldown(1, 3.0, commands.BucketType.user)
-        self.adapters = [MetaAdapter()]
+        self.adapter_pool: dict[str, object] = {"meta": MetaAdapter()}
         if cfg.media_use_proxies:
-            self.adapters.extend(
-                [
-                    FxEmbedAdapter(),
-                    XDirectAdapter(),
-                    IfxAdapter(),
-                    TiktokProxyAdapter(),
-                    FacebedAdapter(),
-                ]
+            self.adapter_pool.update(
+                {
+                    "fxtwitter": FxEmbedAdapter(),
+                    "x-direct": XDirectAdapter(),
+                    "ifx": IfxAdapter(),
+                    "tnktok": TiktokProxyAdapter(),
+                    "facebed": FacebedAdapter(),
+                }
             )
         if cfg.media_use_ytdlp:
-            self.adapters.append(YtDlpAdapter())
+            self.adapter_pool["ytdlp"] = YtDlpAdapter()
         self._task: asyncio.Task | None = None
 
     @property
@@ -67,7 +69,7 @@ class EmbedFixCog(commands.Cog):
             return
         self._task = asyncio.create_task(self._worker())
         log.info(
-            "embedfix ready: %d adapter, %d worker", len(self.adapters), self.cfg.media_workers
+            "embedfix ready: %d adapter, %d worker", len(self.adapter_pool), self.cfg.media_workers
         )
 
     async def cog_unload(self) -> None:
@@ -126,8 +128,17 @@ class EmbedFixCog(commands.Cog):
     async def _probe(self, ctx: LinkContext) -> ProbeResult | None:
         allowed: Iterable[str] = self.cfg.media_allowed_domains
         proxies: Iterable[str] = self.cfg.media_proxy_hosts
+        names = route_for(ctx.canonical, self.cfg.media_use_proxies)
+        if "ytdlp" in self.adapter_pool:
+            names = (*names, "ytdlp")
         best: ProbeResult | None = None
-        for adapter in self.adapters:
+        started = time.monotonic()
+        ran = 0
+        for name in names:
+            adapter = self.adapter_pool.get(name)
+            if adapter is None:
+                continue
+            ran += 1
             result = await adapter.probe(
                 ctx.canonical,
                 allowed,
@@ -136,12 +147,20 @@ class EmbedFixCog(commands.Cog):
                 max_bytes=self.cfg.media_max_bytes,
             )
             if result.kind in {"video", "gallery"}:
+                self._record_probe(started, ran)
                 return result
             if (result.kind == "image" and (best is None or best.kind in {"none", "link"})) or (
                 result.kind == "link" and best is None
             ):
                 best = result
+        self._record_probe(started, ran)
         return best
+
+    def _record_probe(self, started: float, adapters: int) -> None:
+        elapsed = max(0.0, time.monotonic() - started)
+        self.bot.stats["embedfix_probe_ms"] += int(elapsed * 1000)
+        self.bot.stats["embedfix_probe_count"] += 1
+        self.bot.stats["embedfix_adapters_run"] += adapters
 
     async def _process(self, ctx: LinkContext) -> None:
         key = url_hash(ctx.canonical)
@@ -173,14 +192,16 @@ class EmbedFixCog(commands.Cog):
         body = result.context
         if self.cfg.media_auto_translate or "translate" in ctx.modifiers or ctx.lang:
             target = ctx.lang or self.cfg.media_lang
-            if title:
-                translated = await to_vietnamese(title)
-                if translated != title:
-                    title = translated
-            if body:
-                translated_body = await to_vietnamese(body)
-                if translated_body != body:
-                    body = translated_body
+            combined = "\n".join(part for part in (title, body) if part)
+            if combined and not (target == "vi" and looks_vietnamese(combined)):
+                # One API call for both fields instead of two.
+                translated = await to_vietnamese(combined)
+                if translated != combined:
+                    parts = translated.split("\n", 1)
+                    if title:
+                        title = parts[0]
+                    if body:
+                        body = parts[1] if len(parts) > 1 else ""
             log.debug("embedfix translate target=%s", target)
 
         view = build_view(

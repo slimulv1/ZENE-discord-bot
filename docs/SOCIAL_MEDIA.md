@@ -527,6 +527,11 @@ Cần mở rộng `ProbeResult.kind` thêm `"link"` cho trường hợp facebed 
 | `ZENE_MEDIA_DIRECT_VIDEO_TTL` | `300` | Cache ngắn vì signed URL có thể hết hạn |
 | `ZENE_MEDIA_AUTO_TRANSLATE` | `true` | Tự dịch title/context sang `ZENE_MEDIA_LANG`; dùng endpoint gtx `sl=auto` |
 
+**Tối ưu tốc độ đã áp dụng:** định tuyến theo domain (`zene_core/embedfix/router.py`) —
+X dùng API FxEmbed trước, không tải HTML 2MB thừa; ifx HEAD 3 index đầu song song;
+gộp title+context thành 1 lần dịch và bỏ qua nếu đã có dấu tiếng Việt; stats
+`embedfix_probe_ms` / `embedfix_adapters_run` để theo dõi qua `/health`.
+
 ### 14.4 An toàn & suy thoái
 
 - Chỉ cho phép **exact host** proxy từ config; HEAD validate `Content-Type` và `Content-Length`.
