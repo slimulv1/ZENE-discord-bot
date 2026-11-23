@@ -7,6 +7,7 @@ from zene_core.embedfix.proxy_adapters import (
     facebed_url,
     ig_shortcode,
     pick_best_mp4,
+    tiktok_video_id,
     x_status_parts,
 )
 from zene_core.embedfix.views import build_view
@@ -69,6 +70,12 @@ class ProxyTests(unittest.TestCase):
             "https://www.facebed.com/reel/1811869953192242",
         )
         self.assertIsNone(facebed_url("https://x.com/user/status/1"))
+
+    def test_tiktok_video_id(self) -> None:
+        self.assertEqual(
+            tiktok_video_id("https://www.tiktok.com/@user/video/7581405645870517512"),
+            "7581405645870517512",
+        )
 
     def test_pick_best_mp4(self) -> None:
         raw = (

@@ -497,6 +497,7 @@ yt-dlp đã cảnh báo máy hiện tại **không có ffmpeg** khi test reel In
 | `https://ifx.up.railway.app/p/DgAY0euJkFt/media/0` | `HEAD → 200, video/mp4, 7.18 MB` (< 8 MB) |
 | `https://ifx.up.railway.app/p/Dfy-oKtq9iO/media/0` | `HEAD → 200, video/mp4, 2.34 MB` — reel Instagram cũng ra video |
 | `https://www.facebed.com/reel/1811869953192242` | `HEAD 200 text/html`; HTML có `og:video:secure_url` trỏ tới **mp4 trên `fbcdn.net`** — đưa thẳng vào `MediaGallery` được |
+| TikTok `offload.tnktok.com/generate/video/{id}` | `HEAD → 200`, redirect tới `v16m-default.tiktokcdn-us.com/...?mime_type=video_mp4` → adapter trả `video`. Máy này CDN trả 0 byte (bị chặn), nhưng URL signed hợp lệ để Discord fetch. |
 | `ddinstagram.com` | DNS `getaddrinfo failed` từ mạng này → **unknown**, không dùng |
 
 Kết luận: với 3 mạng này **không cần tải file về server, cũng không cần yt-dlp**.

@@ -159,7 +159,7 @@ class Config:
     media_lang: str = "vi"
     media_use_proxies: bool = False
     media_proxy_hosts: frozenset[str] = frozenset(
-        {"api.fxtwitter.com", "ifx.up.railway.app", "facebed.com"}
+        {"api.fxtwitter.com", "ifx.up.railway.app", "facebed.com", "offload.tnktok.com"}
     )
     media_direct_video_ttl: int = 300
 
@@ -262,7 +262,7 @@ class Config:
                 for host in _env_csv(
                     env,
                     "ZENE_MEDIA_PROXY_HOSTS",
-                    "api.fxtwitter.com,ifx.up.railway.app,facebed.com",
+                    "api.fxtwitter.com,ifx.up.railway.app,facebed.com,offload.tnktok.com",
                 )
                 if host.strip()
             ),

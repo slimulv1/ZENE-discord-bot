@@ -20,6 +20,7 @@ from ..embedfix.proxy_adapters import (
     FacebedAdapter,
     FxEmbedAdapter,
     IfxAdapter,
+    TiktokProxyAdapter,
     XDirectAdapter,
 )
 from ..embedfix.views import build_view
@@ -39,7 +40,13 @@ class EmbedFixCog(commands.Cog):
         self.adapters = [MetaAdapter()]
         if cfg.media_use_proxies:
             self.adapters.extend(
-                [FxEmbedAdapter(), XDirectAdapter(), IfxAdapter(), FacebedAdapter()]
+                [
+                    FxEmbedAdapter(),
+                    XDirectAdapter(),
+                    IfxAdapter(),
+                    TiktokProxyAdapter(),
+                    FacebedAdapter(),
+                ]
             )
         if cfg.media_use_ytdlp:
             self.adapters.append(YtDlpAdapter())

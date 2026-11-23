@@ -58,7 +58,7 @@ ZENE_MEDIA_SUPPRESS=false
 ZENE_MEDIA_USE_YTDLP=false
 ZENE_MEDIA_LANG=vi
 ZENE_MEDIA_USE_PROXIES=false
-ZENE_MEDIA_PROXY_HOSTS=api.fxtwitter.com,ifx.up.railway.app,facebed.com
+ZENE_MEDIA_PROXY_HOSTS=api.fxtwitter.com,ifx.up.railway.app,facebed.com,offload.tnktok.com
 ZENE_MEDIA_DIRECT_VIDEO_TTL=300
 
 # Health endpoint (set HEALTH_PORT=0 to disable)

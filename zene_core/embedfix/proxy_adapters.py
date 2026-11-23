@@ -18,6 +18,7 @@ log = logging.getLogger(__name__)
 
 X_STATUS_RE = re.compile(r"^/([^/]+)/status/(\d+)")
 IG_SHORTCODE_RE = re.compile(r"^/(?:p|reel|reels)/([^/?]+)")
+TIKTOK_ID_RE = re.compile(r"/video/(\d+)")
 MP4_RE = re.compile(r'https://video\.twimg\.com/[^"\\\s<>]+\.mp4\?[^"\\\s<>]*')
 RES_RE = re.compile(r"/avc1/(\d+)x(\d+)/")
 
@@ -29,6 +30,11 @@ def x_status_parts(url: str) -> tuple[str, str] | None:
 
 def ig_shortcode(url: str) -> str | None:
     match = IG_SHORTCODE_RE.match(URL(url).path)
+    return match.group(1) if match else None
+
+
+def tiktok_video_id(url: str) -> str | None:
+    match = TIKTOK_ID_RE.search(URL(url).path)
     return match.group(1) if match else None
 
 
@@ -155,6 +161,41 @@ class IfxAdapter:
             except Exception as exc:  # noqa: BLE001 - proxy boundary
                 log.debug("ifx probe failed: %s", exc)
         return ProbeResult("none", "", "", page_url=url)
+
+
+class TiktokProxyAdapter:
+    name = "tnktok"
+
+    async def probe(
+        self,
+        url: str,
+        allowed_domains: Iterable[str],
+        timeout: float,
+        proxy_hosts: Iterable[str] = (),
+        max_bytes: int = 8 * 1024 * 1024,
+    ) -> ProbeResult:
+        video_id = tiktok_video_id(url)
+        if video_id is None:
+            return ProbeResult("none", "", "", page_url=url)
+        proxy = f"https://offload.tnktok.com/generate/video/{video_id}"
+        session = await get_session()
+        try:
+            async with session.head(proxy, allow_redirects=True, timeout=timeout) as response:
+                if response.status != 200:
+                    return ProbeResult("none", "", "", page_url=url)
+                final = str(response.url)
+        except Exception as exc:  # noqa: BLE001 - proxy boundary
+            log.debug("tnktok probe failed: %s", exc)
+            return ProbeResult("none", "", "", page_url=url)
+
+        parsed = URL(final)
+        host = (parsed.host or "").lower()
+        is_cdn = host.endswith((".tiktokcdn.com", ".tiktokcdn-us.com"))
+        if not is_cdn or "video_mp4" not in parsed.query_string:
+            return ProbeResult("none", "", "", page_url=url)
+        if not is_asset_url(final, allowed_domains, proxy_hosts):
+            return ProbeResult("none", "", "", page_url=url)
+        return ProbeResult("video", "", "", (final,), "", None, url)
 
 
 class FacebedAdapter:
