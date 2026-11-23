@@ -19,6 +19,7 @@ from ..avwiki import (
     bilingual,
     clean_title,
     dmm_image,
+    page_thumbnail,
     search_code,
     search_idol,
     to_vietnamese,
@@ -111,6 +112,10 @@ class AvWikiCog(commands.Cog):
 
         image = item["image"]
         source_note = "Nguồn: av-wiki.net"
+        if not image.startswith(("http://", "https://")):
+            image = await page_thumbnail(item["link"])
+            if image:
+                source_note += " • Ảnh: av-wiki"
         if not image.startswith(("http://", "https://")):
             image = await dmm_image(
                 item["code"] or arg,

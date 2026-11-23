@@ -10,7 +10,7 @@ from urllib.parse import urlencode
 
 from cachetools import TTLCache
 
-from .net import fetch_json, get_breaker
+from .net import fetch_json, fetch_text, get_breaker
 from .resilience import call_with_breaker
 
 log = logging.getLogger(__name__)
@@ -19,6 +19,7 @@ BASE = "https://av-wiki.net/wp-json/wp/v2"
 
 # Bounded TTL caches: repeated /code and /idol calls never re-hit the API.
 _LOOKUP_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
+_THUMB_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
 _TRANSLATE_CACHE: TTLCache = TTLCache(maxsize=512, ttl=86400)
 
 
@@ -117,6 +118,39 @@ def parse_idol_tag(tag: dict) -> dict:
         "link": str(tag.get("link", "")),
         "count": tag.get("count", 0),
     }
+
+
+async def page_thumbnail(link: str) -> str:
+    """Read the cover image from the article header of an av-wiki post.
+
+    The WP REST ``content.rendered`` field does not contain the cover — it
+    lives in ``<div class="article-thumbnail">`` of the rendered page. Fetching
+    that page keeps us in sync with av-wiki's own layout instead of guessing
+    CDN URL templates per studio.
+    """
+    if not link.startswith(("http://", "https://")):
+        return ""
+    cached = _THUMB_CACHE.get(link)
+    if cached is not None:
+        return cached
+
+    raw = await fetch_text(link, name="avwiki-page", timeout=15)
+    if not raw:
+        return ""
+
+    match = re.search(
+        r"<div[^>]*class=[\"'][^\"']*article-thumbnail[^\"']*[\"'][^>]*>.*?"
+        r"<img[^>]+src=[\"']([^\"']+)",
+        raw,
+        re.S | re.I,
+    )
+    if not match:
+        return ""
+    url = html.unescape(match.group(1))
+    if not url.startswith(("http://", "https://")):
+        return ""
+    _THUMB_CACHE[link] = url
+    return url
 
 
 async def dmm_image(code: str, api_id: str, affiliate_id: str) -> str:
