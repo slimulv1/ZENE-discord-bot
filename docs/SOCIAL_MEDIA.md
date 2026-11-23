@@ -483,7 +483,69 @@ yt-dlp đã cảnh báo máy hiện tại **không có ffmpeg** khi test reel In
 - X API tính phí; yt-dlp phụ thuộc cấu trúc HTML nên có thể vỡ bất kỳ lúc nào.
 - Không bao giờ bật chế độ `download` mặc định; chỉ opt-in từng server.
 
-## 13. Câu hỏi còn mở
+## 13. Phương án KHÔNG dùng yt-dlp (rewrite/proxy trực tiếp)
+
+### 14.1 Bằng chứng đã thử
+
+| Nguồn | Kết quả verify |
+|---|---|
+| X status `2124470814…` | HTML công khai chứa **9 URL `https://video.twimg.com/.../*.mp4?tag=29`**, trong đó có `320x568`, `480x854`. MetaAdapter trước đó chỉ đọc og: nên bỏ sót. |
+| `https://ifx.up.railway.app/p/DgAY0euJkFt/media/0` | `HEAD → 200, video/mp4, 7.18 MB` (< 8 MB) |
+| `https://ifx.up.railway.app/p/Dfy-oKtq9iO/media/0` | `HEAD → 200, video/mp4, 2.34 MB` — reel Instagram cũng ra video |
+| facebed.com | Trang chủ ghi: *"Replace facebook.com with facebed.com… Reels are supported"*, không affiliate với Meta |
+
+Kết luận: với 3 mạng này **không cần tải file về server, cũng không cần yt-dlp**.
+
+### 14.2 Ba adapter mới
+
+| Adapter | Input | Output | Delivery |
+|---|---|---|---|
+| `XDirectAdapter` | HTML X | regex `video.twimg.com/.../*.mp4`, chọn `/avc1/{W}x{H}/` có W×H lớn nhất, unescape `&amp;` | V2 `MediaGallery` |
+| `IfxAdapter` | path `/p/{id}/` hoặc `/reel/{id}/` | `HEAD https://ifx.up.railway.app/p/{id}/media/{0,1,2}` → giữ URL nếu `video/mp4` và ≤ `media_max_bytes` | V2 `MediaGallery` |
+| `FacebedAdapter` | URL `facebook.com`/`fb.com` | đổi host thành `facebed.com`, giữ path/query | **Message content thường** để Discord tự unfurl |
+
+Cần mở rộng `ProbeResult.kind` thêm `"link"` cho trường hợp facebed (không phải asset URL).
+`views.build_view` chỉ dùng cho `image|video|gallery`; `link` đi qua nhánh `message.reply(content=rewritten_url)`.
+
+> Components V2 (`TextDisplay`) **không unfurl link**, nên không nhét URL facebed vào view.
+
+### 14.3 Biến cấu hình mới
+
+| Biến | Mặc định | Ý nghĩa |
+|---|---|---|
+| `ZENE_MEDIA_USE_PROXIES` | `false` | Bật ifx/facebed (third-party) |
+| `ZENE_MEDIA_PROXY_HOSTS` | `ifx.up.railway.app` | Exact host được phép, không dùng wildcard `.railway.app` |
+| `ZENE_MEDIA_FACEBED_HOST` | `facebed.com` | Host rewrite cho Facebook |
+| `ZENE_MEDIA_DIRECT_VIDEO_TTL` | `300` | Cache ngắn vì signed URL có thể hết hạn |
+
+### 14.4 An toàn & suy thoái
+
+- Chỉ cho phép **exact host** proxy từ config; HEAD validate `Content-Type` và `Content-Length`.
+- Không tải body lạ về server, không log URL đầy (chỉ hash), không follow redirect về IP private.
+- Nếu proxy 403/429 hoặc sai content-type → fallback `og:image` thumbnail như Phase 1.
+- Cache ngắn 5 phút cho URL video trực tiếp; re-probe khi gửi thấy lỗi.
+- Rủi ro: ifx/facebed là bên thứ ba, có thể downtime hoặc vi phạm ToS của Instagram/Facebook — phải ghi disclaimer, opt-in từng server.
+
+### 14.5 Thứ tự ưu tiên adapter (không yt-dlp)
+
+```
+MetaAdapter (og:image/og:video)
+  → nếu XDirectAdapter thấy mp4 → thay media_urls bằng mp4, kind=video
+  → nếu IG + proxy bật → IfxAdapter HEAD lấy mp4
+  → nếu FB + proxy bật → FacebedAdapter → content message
+  → fallback thumbnail / link gốc
+```
+
+### 14.6 Kiểm chứng cần làm khi code
+
+- [ ] Regex X chọn đúng mp4 có resolution cao nhất, `&amp;` → `&`.
+- [ ] `is_asset_url` chấp nhận `video.twimg.com` và exact `ifx.up.railway.app`, từ chối host khác.
+- [ ] HEAD ifx trả `video/mp4` nhưng `Content-Length > 8MB` → bỏ, fallback ảnh.
+- [ ] Rewrite Facebook giữ query `?story_fbid=...&id=...`.
+- [ ] V2 view không bị truyền `content=`; nhánh `link` dùng message thường.
+- [ ] Stats: `embedfix_video_ok`, `embedfix_proxy_fail`, `embedfix_link_embed`.
+
+## 14. Câu hỏi còn mở
 
 - TikTok oEmbed có trả thumbnail miễn phí không? (docs bị chặn → **unknown**)
 - Instagram/Facebook cần cookie đăng nhập cho bài public không? (**inferred**: có thể, tuỳ thời điểm)
