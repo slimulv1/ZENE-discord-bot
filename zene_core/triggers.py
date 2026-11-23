@@ -96,5 +96,9 @@ class TriggerRegistry:
             + tuple(trigger for _, trigger in self._regex)
         )
 
+    @property
+    def exact_names(self) -> tuple[str, ...]:
+        return tuple(self._exact)
+
     def __len__(self) -> int:
         return len(self._exact) + len(self._contains) + len(self._regex)

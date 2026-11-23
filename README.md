@@ -88,7 +88,8 @@ Một số lệnh dùng được **cả hai cách** — mình ghi là "cả hai"
 |---|---|
 | `/amlich` | Cho biết âm lịch hôm nay, tuổi xung, giờ tốt |
 | `/avt` | Hiện ảnh đại diện của bạn (hoặc người bạn tag) |
-| `/cmd` | Liệt kê các cụm từ meme, có nút bấm sang trang |
+| `/cmd` | Liệt kê cụm meme dạng ảnh/video, có nút phân trang |
+| `/list` | Liệt kê **tất cả** cụm meme (cả text trigger), có phân trang |
 | `/code <mã phim>` | Tra cứu phim theo mã |
 | `/giaxanghomnay` | Giá xăng hôm nay |
 | `/haha` | Ghép avatar của bạn vào ảnh "3 chó tuyết" |
