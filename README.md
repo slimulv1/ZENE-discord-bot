@@ -33,20 +33,32 @@ Cần **Python 3.10 trở lên** (cài 3.11 là đẹp).
 
 Giả sử bạn đã tạo bot và có token (nếu chưa, xem mục 3).
 
-**Windows (PowerShell):**
+### 🪟 Windows
+
+**Hướng dẫn đầy đủ, từng bước một:** **[docs/WINDOWS_SETUP.md](docs/WINDOWS_SETUP.md)**
+(cài Python → tạo bot → lấy token/ID → mời bot → chạy thử → chạy 24/7 → sửa lỗi).
+
+Tóm tắt cho người đã có repo và bot:
 
 ```powershell
-git clone https://github.com/slimulv1/ZENE-discord-bot.git
-cd ZENE-discord-bot
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-python -m pip install -r requirements.txt
-copy config.example.txt .env
-notepad .env
-python run.py
+cd "C:\Users\slimu\Downloads\Zene Bot\ZENE-discord-bot"
+powershell -NoProfile -ExecutionPolicy Bypass -Command ".\.venv\Scripts\python.exe -m pip install -r requirements.txt"
+powershell -NoProfile -ExecutionPolicy Bypass -File .\start.ps1
 ```
 
-**Linux / macOS:**
+`start.ps1` sẽ **hỏi token ẩn + ID Discord** và lưu vào biến môi trường USER — bạn không
+phải dán lại lệnh dài. Muốn bot tự chạy khi đăng nhập, chạy **1 lần**:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-autostart.ps1
+```
+
+Quản lý: `Stop-ScheduledTask -TaskName 'ZENE Bot'` / `Start-ScheduledTask -TaskName 'ZENE Bot'`
+/ gỡ bằng `.\uninstall-autostart.ps1`.
+
+> Token là bí mật. Nếu lỡ dán vào chat/log thì **Reset Token** trong Discord ngay.
+
+### 🐧 Linux / macOS
 
 ```bash
 git clone https://github.com/slimulv1/ZENE-discord-bot.git
@@ -55,57 +67,11 @@ python3.11 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 cp config.example.txt .env
-nano .env
+nano .env      # điền DISCORD_TOKEN và ZENE_OWNER_IDS
 python run.py
 ```
 
-Trong file `.env`, bạn **phải** điền `DISCORD_TOKEN=` bằng token bot của bạn.
-Nhớ điền luôn `ZENE_OWNER_IDS=` bằng ID Discord của bạn để dùng được lệnh quản lý.
-
-> **⚠️ Nếu Windows chặn lệnh kích hoạt `.venv`**, chạy thêm:
-> `Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass`
-
-> **🔒 Token là bí mật.** Đây là nơi duy nhất bạn dán token. Đừng commit file `.env`,
-> đừng gửi token cho ai, và nếu lỡ lộ thì Reset Token trong Discord ngay.
-
-**Khởi động nhanh trên Windows:** chạy `.\start.ps1` trong thư mục dự án. Script đã
-thiết lập sẵn các biến môi trường và **hỏi token ẩn + ID Discord khi chạy** — token không được
-lưu vào file, nên lần sau bạn không phải dán lại cả lệnh dài:
-
-```powershell
-cd "C:\Users\slimu\Downloads\Zene Bot\ZENE-discord-bot"
-.\start.ps1
-```
-
-Nếu PowerShell chặn chạy script, dùng:
-`powershell -NoProfile -ExecutionPolicy Bypass -File .\start.ps1`
-
-### Tự chạy khi Windows khởi động / đăng nhập
-
-Chạy **một lần** (sẽ hỏi token ẩn + ID Discord rồi lưu vào biến môi trường USER, không ghi vào repo):
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\install-autostart.ps1
-```
-
-Script đăng ký Scheduled Task tên **`ZENE Bot`**, chạy `zene-autostart.ps1` mỗi lần bạn
-đăng nhập. Nếu process bot thoát, script tự chạy lại sau 10 giây. Log nền tại
-`logs/autostart.log` (không chứa token).
-
-Quản lý:
-
-```powershell
-Stop-ScheduledTask -TaskName 'ZENE Bot'          # tạm dừng
-Start-ScheduledTask -TaskName 'ZENE Bot'         # chạy lại
-powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1   # gỡ vĩnh viễn
-```
-
-> Giới hạn: chạy **sau khi bạn đăng nhập**, không chạy khi máy chưa có phiên đăng nhập.
-> Token nằm trong biến môi trường cấp user (registry Windows), không nằm trong git —
-> nhưng tiến trình nào chạy bằng user đó cũng đọc được. Nếu lộ token, Reset Token ngay.
-
-Muốn bot tự chạy lại khi tắt terminal? Xem mục 🍓 4 — cách systemd ở đó dùng được
-cho cả máy Linux x86.
+Trên Linux/macOS dùng systemd/Docker để tự chạy — xem mục 🍓 4.
 
 ---
 
@@ -374,6 +340,7 @@ Log nằm ở `logs/zene.log`. Bot tự xóa log cũ và tự che token khi ghi 
 | Bạn thấy | Hiểu là | Làm gì |
 |---|---|---|
 | `PrivilegedIntentsRequired` | Bot chưa được bật quyền đọc tin nhắn | Vào Developer Portal bật **Message Content Intent** |
+| `403 Missing Permissions` khi gửi link | Bot thiếu Manage Webhooks/Manage Messages | Mời lại bot bằng link "đầy đủ" trong [hướng dẫn Windows](docs/WINDOWS_SETUP.md#33-mời-bot-vào-server) |
 | `LoginFailure` | Token sai hoặc cũ | Reset Token, dán token mới vào `.env` |
 | Không thấy lệnh `/` | Bot thiếu quyền app command | Tick `applications.commands` rồi mời bot lại; đợi vài phút |
 | `/code` bảo dùng kênh NSFW | Kênh đó chưa bật NSFW | Settings kênh → bật NSFW |
