@@ -80,6 +80,30 @@ cd "C:\Users\slimu\Downloads\Zene Bot\ZENE-discord-bot"
 Nếu PowerShell chặn chạy script, dùng:
 `powershell -NoProfile -ExecutionPolicy Bypass -File .\start.ps1`
 
+### Tự chạy khi Windows khởi động / đăng nhập
+
+Chạy **một lần** (sẽ hỏi token ẩn rồi lưu vào biến môi trường USER, không ghi vào repo):
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\install-autostart.ps1
+```
+
+Script đăng ký Scheduled Task tên **`ZENE Bot`**, chạy `zene-autostart.ps1` mỗi lần bạn
+đăng nhập. Nếu process bot thoát, script tự chạy lại sau 10 giây. Log nền tại
+`logs/autostart.log` (không chứa token).
+
+Quản lý:
+
+```powershell
+Stop-ScheduledTask -TaskName 'ZENE Bot'          # tạm dừng
+Start-ScheduledTask -TaskName 'ZENE Bot'         # chạy lại
+powershell -NoProfile -ExecutionPolicy Bypass -File .\uninstall-autostart.ps1   # gỡ vĩnh viễn
+```
+
+> Giới hạn: chạy **sau khi bạn đăng nhập**, không chạy khi máy chưa có phiên đăng nhập.
+> Token nằm trong biến môi trường cấp user (registry Windows), không nằm trong git —
+> nhưng tiến trình nào chạy bằng user đó cũng đọc được. Nếu lộ token, Reset Token ngay.
+
 Muốn bot tự chạy lại khi tắt terminal? Xem mục 🍓 4 — cách systemd ở đó dùng được
 cho cả máy Linux x86.
 
