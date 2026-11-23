@@ -160,7 +160,27 @@ Mỗi phase đều có feature flag để rollback ngay.
 
 ---
 
-## 8. Câu hỏi còn mở
+## 8. Bài học từ Embedded.gallery (https://embedded.gallery/)
+
+Bot này là **embed fixer**, không phải downloader. Điểm khác biệt lớn:
+
+| Học được | Áp dụng vào ZENE |
+|---|---|
+| Không tải lại media rồi upload — dùng URL media từ nền tảng trong `Embed` | Đổi ưu tiên: **oEmbed/remote URL trước**, yt-dlp chỉ làm fallback. Tránh giới hạn 8MB và rủi ro rehost |
+| 2 chế độ: `Reply` (mặc định) và `Impersonate` (webhook mang tên/avatar người gửi, có watermark trừ khi Premium) | Thêm tuỳ chọn webhook, nhưng mặc định vẫn `reply` cho an toàn |
+| "Ẩn preview của Discord rồi reply embed đã sửa" → nhiều khả năng dùng `Message.edit(suppress=True)`, cần `Manage Messages` | Thêm `suppress` có điều kiện theo quyền, fallback reply nếu thiếu quyền |
+| Modifier ngay trong tin nhắn: `文` dịch, `~` ẩn quote, `||` spoiler, `^` hiện parent reply, `es:` chọn ngôn ngữ | Thiết kế cú pháp điều khiển per-link thay vì chỉ env cứng |
+| Cấu hình theo server + channel + platform; NSFW/spoiler auto theo kênh age-restricted | Mở rộng config hiện tại theo guild/channel |
+| Context: quote, parent reply, Community Notes, comment Reddit cụ thể | Adapter nên trả `context` chứ không chỉ media |
+| Gallery view: ảnh + video của cùng 1 post trong 1 gallery | Dùng nhiều embed/file trong 1 message thay vì chỉ 1 file |
+| Dịch tự động theo server/channel | Tái dùng `to_vietnamese()` hiện có |
+| Freemium $1.99/server/tháng cho custom avatar, bỏ watermark, bot phản hồi bot, translation limit cao | Gợi ý mô hình bền vững nếu public bot |
+
+**Lưu ý:** trang không công bố implementation, nên chi tiết kỹ thuật ở trên là *inferred* từ mô tả sản phẩm. Privacy policy của họ nói chỉ lưu Discord ID để debug và xử lý nội dung tin nhắn tạm thời — nên cân nhắc chính sách tương tự.
+
+**Kết luận sửa thiết kế:** ưu tiên `embed fixer` (remote URL) hơn `downloader`. yt-dlp vẫn giữ làm fallback cho link không có oEmbed tốt.
+
+## 9. Câu hỏi còn mở
 
 - TikTok oEmbed có trả thumbnail miễn phí không? (docs bị chặn → **unknown**)
 - Instagram/Facebook cần cookie đăng nhập cho bài public không? (**inferred**: có thể, tuỳ thời điểm)
