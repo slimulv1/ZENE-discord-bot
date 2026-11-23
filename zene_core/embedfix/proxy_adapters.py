@@ -296,7 +296,17 @@ class TikwmAdapter:
         max_bytes: int = 8 * 1024 * 1024,
     ) -> ProbeResult:
         api = "https://tikwm.com/api/?" + urlencode({"url": url})
-        payload = await fetch_json(api, name="tikwm", timeout=min(timeout, 10.0))
+        # Direct GET: the shared fetch_json breaker is keyed by name and a run
+        # of upstream timeouts would poison every later TikWM attempt.
+        try:
+            session = await get_session()
+            async with session.get(api, timeout=min(timeout, 10.0)) as response:
+                if response.status != 200:
+                    return ProbeResult("none", "", "", page_url=url)
+                payload = await response.json(content_type=None)
+        except Exception as exc:  # noqa: BLE001 - third-party boundary
+            log.debug("tikwm probe failed: %s", exc)
+            return ProbeResult("none", "", "", page_url=url)
         data = (payload or {}).get("data") or {}
         if not isinstance(data, dict):
             return ProbeResult("none", "", "", page_url=url)

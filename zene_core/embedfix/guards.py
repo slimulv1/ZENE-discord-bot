@@ -109,6 +109,22 @@ async def canonicalize(
     return str(clean)
 
 
+def rewrite_tiktok_link(url: str) -> str:
+    """Rewrite a TikTok post to the fxTikTok mirror for Discord's unfurl.
+
+    Used as a last resort: Discord itself renders the mirrored link with a
+    playable video, so no bot-side download/upload is needed.
+    """
+    try:
+        parsed = URL(url)
+    except ValueError:
+        return ""
+    host = (parsed.host or "").lower()
+    if registrable(host) != "tiktok.com":
+        return ""
+    return str(parsed.with_host("www.tnktok.com").with_query(None).with_fragment(None))
+
+
 def is_asset_url(
     url: str,
     allowed_domains: Iterable[str],

@@ -13,7 +13,7 @@ from zene_core.cogs.conversation import ConversationCog
 from zene_core.cogs.embedfix import EmbedFixCog, _bot_badge_url, _compose_avatar_bytes
 from zene_core.config import Config
 from zene_core.content import fresh_commands, prepare_reload, reload_data
-from zene_core.embedfix.guards import canonicalize, is_asset_url, url_hash
+from zene_core.embedfix.guards import canonicalize, is_asset_url, rewrite_tiktok_link, url_hash
 from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
 from zene_core.embedfix.proxy_adapters import (
@@ -284,8 +284,26 @@ class TiktokAdapterTests(unittest.IsolatedAsyncioTestCase):
 
     async def test_tikwm_returns_play_url(self) -> None:
         payload = {"data": {"play": "https://v16.tiktokcdn-us.com/x?video_mp4=1"}}
+
+        class Response:
+            status = 200
+
+            async def json(self, **kwargs):
+                return payload
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+        class Session:
+            def get(self, url, **kwargs):
+                return Response()
+
         with patch(
-            "zene_core.embedfix.proxy_adapters.fetch_json", new=AsyncMock(return_value=payload)
+            "zene_core.embedfix.proxy_adapters.get_session",
+            new=AsyncMock(return_value=Session()),
         ):
             result = await TikwmAdapter().probe(
                 "https://www.tiktok.com/@a/video/1234567890",
@@ -295,6 +313,13 @@ class TiktokAdapterTests(unittest.IsolatedAsyncioTestCase):
             )
         self.assertEqual(result.kind, "video")
         self.assertEqual(len(result.media_urls), 1)
+
+    def test_tiktok_link_rewrite(self) -> None:
+        self.assertEqual(
+            rewrite_tiktok_link("https://www.tiktok.com/@a/video/123?utm_source=x&u_code=y"),
+            "https://www.tnktok.com/@a/video/123",
+        )
+        self.assertEqual(rewrite_tiktok_link("https://instagram.com/p/x"), "")
 
 
 class RouterTests(unittest.TestCase):
