@@ -9,13 +9,15 @@ from .guards import registrable
 ROUTES: dict[str, tuple[str, ...]] = {
     "x.com": ("fxtwitter", "x-direct", "meta"),
     "twitter.com": ("fxtwitter", "x-direct", "meta"),
-    "instagram.com": ("ifx", "meta"),
+    "instagram.com": ("ifx", "oginstagram", "meta"),
     "facebook.com": ("facebed", "meta"),
     "fb.com": ("facebed", "meta"),
     "tiktok.com": ("tnktok", "tikwm", "meta"),
 }
 
-PROXY_ADAPTERS = frozenset({"fxtwitter", "x-direct", "ifx", "facebed", "tnktok", "tikwm"})
+PROXY_ADAPTERS = frozenset(
+    {"fxtwitter", "x-direct", "ifx", "oginstagram", "facebed", "tnktok", "tikwm"}
+)
 
 
 def route_for(url: str, use_proxies: bool = True) -> tuple[str, ...]:

@@ -18,6 +18,7 @@ from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
 from zene_core.embedfix.proxy_adapters import (
     IfxAdapter,
+    OgInstagramAdapter,
     TiktokProxyAdapter,
     TikwmAdapter,
     extract_item_url,
@@ -126,6 +127,47 @@ class ReloadDataTests(unittest.TestCase):
             content.ANXIN_STORIES[:] = original["ANXIN_STORIES"]
             content.CODE_STORIES[:] = original["CODE_STORIES"]
             content.FOLO_TEXT = original["FOLO_TEXT"]
+
+
+class OgInstagramAdapterTests(unittest.IsolatedAsyncioTestCase):
+    async def test_direct_og_image_is_validated_and_returned(self) -> None:
+        html = '<meta property="og:image" content="https://oginstagram.com/offload/x/1?exp=1&amp;sig=2" />'
+
+        class Response:
+            status = 200
+            headers: ClassVar[dict[str, str]] = {
+                "Content-Type": "image/jpeg",
+                "Content-Length": "2048",
+            }
+
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+        class Session:
+            def head(self, url, **kwargs):
+                return Response()
+
+        with (
+            patch(
+                "zene_core.embedfix.proxy_adapters.fetch_text",
+                new=AsyncMock(return_value=html),
+            ),
+            patch(
+                "zene_core.embedfix.proxy_adapters.get_session",
+                new=AsyncMock(return_value=Session()),
+            ),
+        ):
+            result = await OgInstagramAdapter().probe(
+                "https://www.instagram.com/p/x/",
+                {"instagram.com"},
+                10.0,
+                proxy_hosts={"ifx.up.railway.app"},
+            )
+        self.assertEqual(result.kind, "image")
+        self.assertTrue(result.media_urls[0].startswith("https://oginstagram.com/offload/"))
 
 
 class AvatarBadgeTests(unittest.TestCase):

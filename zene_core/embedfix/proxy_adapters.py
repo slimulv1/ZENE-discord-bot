@@ -14,7 +14,7 @@ from yarl import URL
 
 from ..net import fetch_json, fetch_text, get_session
 from .adapters import _MetaParser
-from .guards import is_asset_url
+from .guards import is_asset_url, rewrite_social_link
 from .models import ProbeResult
 
 log = logging.getLogger(__name__)
@@ -232,6 +232,60 @@ class IfxAdapter:
         # ifx does not expose a sensitivity flag. Without this, strict-NSFW
         # mode silently drops every Instagram post in a normal channel.
         return ProbeResult(kind, "", "", tuple(item for item, _ in collected), "", False, url)
+
+
+class OgInstagramAdapter:
+    """Direct media via oginstagram's og:image/og:video (HEAD-validated)."""
+
+    name = "oginstagram"
+
+    async def probe(
+        self,
+        url: str,
+        allowed_domains: Iterable[str],
+        timeout: float,
+        proxy_hosts: Iterable[str] = (),
+        max_bytes: int = 8 * 1024 * 1024,
+    ) -> ProbeResult:
+        mirror = rewrite_social_link(url)
+        if not mirror.startswith("https://oginstagram.com/"):
+            return ProbeResult("none", "", "", page_url=url)
+        html = await fetch_text(mirror, name="oginstagram", timeout=min(timeout, 10.0))
+        if not html:
+            return ProbeResult("none", "", "", page_url=url)
+        parser = _MetaParser()
+        parser.feed(html[:2_000_000])
+        videos = [
+            item
+            for item in (parser.meta.get("og:video:secure_url"), parser.meta.get("og:video"))
+            if item
+        ]
+        images = [item for item in (parser.meta.get("og:image"),) if item]
+        session = await get_session()
+        trusted_hosts = (*proxy_hosts, "oginstagram.com")
+        media: list[str] = []
+        for item in dict.fromkeys((*videos, *images)):
+            if not is_asset_url(item, allowed_domains, trusted_hosts):
+                continue
+            try:
+                async with session.head(
+                    item, allow_redirects=True, timeout=min(timeout, 8.0)
+                ) as response:
+                    content_type = response.headers.get("Content-Type") or ""
+                    if response.status != 200 or not content_type.startswith(("image/", "video/")):
+                        continue
+                    size = response.headers.get("Content-Length")
+                    if size is not None and int(size) == 0:
+                        continue
+            except Exception as exc:  # noqa: BLE001 - mirror boundary
+                log.debug("oginstagram HEAD failed: %s", exc)
+                continue
+            media.append(item)
+        if not media:
+            return ProbeResult("none", "", "", page_url=url)
+        has_video = any(item in media for item in videos)
+        kind = "video" if has_video else ("image" if len(media) == 1 else "gallery")
+        return ProbeResult(kind, "", "", tuple(media), "", False, url)
 
 
 class TiktokProxyAdapter:

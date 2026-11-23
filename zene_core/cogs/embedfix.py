@@ -22,6 +22,7 @@ from ..embedfix.proxy_adapters import (
     FacebedAdapter,
     FxEmbedAdapter,
     IfxAdapter,
+    OgInstagramAdapter,
     TiktokProxyAdapter,
     TikwmAdapter,
     XDirectAdapter,
@@ -103,6 +104,7 @@ class EmbedFixCog(commands.Cog):
                     "fxtwitter": FxEmbedAdapter(),
                     "x-direct": XDirectAdapter(),
                     "ifx": IfxAdapter(),
+                    "oginstagram": OgInstagramAdapter(),
                     "tnktok": TiktokProxyAdapter(),
                     "tikwm": TikwmAdapter(),
                     "facebed": FacebedAdapter(),
@@ -226,10 +228,13 @@ class EmbedFixCog(commands.Cog):
         started = time.monotonic()
         ran = 0
 
-        # Instagram: ifx often 500s on reel shortcodes while the generic meta
-        # probe already has og:image. Run both at once and take the richer hit.
-        if names == ("ifx", "meta") and {"ifx", "meta"} <= self.adapter_pool.keys():
-            ifx, meta = await asyncio.gather(
+        # Instagram: ifx sometimes 500s on reels while oginstagram exposes a
+        # direct og:image. Run both at once; fall through to meta if both fail.
+        if (
+            names[:2] == ("ifx", "oginstagram")
+            and {"ifx", "oginstagram"} <= self.adapter_pool.keys()
+        ):
+            ifx, og = await asyncio.gather(
                 self.adapter_pool["ifx"].probe(
                     ctx.canonical,
                     allowed,
@@ -237,7 +242,7 @@ class EmbedFixCog(commands.Cog):
                     proxy_hosts=proxies,
                     max_bytes=self.cfg.media_max_bytes,
                 ),
-                self.adapter_pool["meta"].probe(
+                self.adapter_pool["oginstagram"].probe(
                     ctx.canonical,
                     allowed,
                     self.cfg.media_timeout,
@@ -247,14 +252,16 @@ class EmbedFixCog(commands.Cog):
                 return_exceptions=True,
             )
             ran = 2
-            results = [item for item in (ifx, meta) if isinstance(item, ProbeResult)]
+            results = [item for item in (ifx, og) if isinstance(item, ProbeResult)]
             best = (
                 next((item for item in results if item.kind in {"video", "gallery"}), None)
                 or next((item for item in results if item.kind == "image"), None)
                 or next((item for item in results if item.kind == "link"), None)
             )
-            self._record_probe(started, ran)
-            return best
+            if best is not None:
+                self._record_probe(started, ran)
+                return best
+            names = ("meta",)
 
         # TikTok: tnktok is fast when alive, tikwm is a backup. Run together so
         # a dead proxy cannot add its full timeout to every TikTok link.
