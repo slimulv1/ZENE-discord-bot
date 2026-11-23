@@ -173,8 +173,6 @@ class Supervisor:
         uptime = max(1.0, time.monotonic() - self.started_at)
         raw_latency = getattr(bot, "latency", float("nan"))
         latency = round(raw_latency * 1000, 1) if math.isfinite(raw_latency) else None
-        stats_fn = getattr(bot, "latency_stats", None)
-        latency_stats = stats_fn() if callable(stats_fn) else {}
         trigger_hits = stats.get("trigger_hits", 0)
         checks = {
             "gateway": "pass" if ready else "fail",
@@ -188,8 +186,6 @@ class Supervisor:
             "uptime_seconds": round(uptime, 1),
             "restarts": self.state.restarts,
             "latency_ms": latency,
-            "latency_p50_ms": latency_stats.get("p50_ms"),
-            "latency_p95_ms": latency_stats.get("p95_ms"),
             "guilds": len(getattr(bot, "guilds", []) or []),
             "commands": len(getattr(bot, "commands", []) or []),
             "triggers_per_hour": round(trigger_hits * 3600 / uptime, 1) if uptime >= 60 else 0,

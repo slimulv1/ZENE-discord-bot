@@ -5,10 +5,9 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import logging
-import math
 import random
 import time
-from collections import Counter, deque
+from collections import Counter
 
 import discord
 from discord import app_commands
@@ -26,16 +25,9 @@ log = logging.getLogger(__name__)
 
 class ZeneBot(commands.Bot):
     def __init__(self, config: Config, state: RuntimeState) -> None:
-        # Only the events this bot actually listens to. discord.py's default
-        # enables reactions, typing, voice states, invites, integrations, etc.,
-        # which wastes gateway bandwidth and event-loop time on every guild.
-        intents = discord.Intents(
-            guilds=True,
-            guild_messages=True,
-            dm_messages=True,
-            message_content=True,  # required for prefix commands in discord.py 2.x
-            members=config.members_intent,  # privileged — off by default
-        )
+        intents = discord.Intents.default()
+        intents.message_content = True  # required for prefix commands in discord.py 2.x
+        intents.members = config.members_intent  # privileged — off by default
 
         super().__init__(
             command_prefix=config.command_prefixes,
@@ -43,16 +35,6 @@ class ZeneBot(commands.Bot):
             help_command=None,
             case_insensitive=True,
             owner_ids=config.owner_ids,
-            # No member cache / startup chunking: members intent is off and no
-            # cog needs a member list. Cuts IDENTIFY work and resident memory.
-            member_cache_flags=discord.MemberCacheFlags.none(),
-            chunk_guilds_at_startup=False,
-            # We never read the message cache; keep it tiny to reduce GC pauses.
-            max_messages=100,
-            # Needed for on_socket_raw_receive latency sampling (off by default
-            # in discord.py for performance reasons). Intents are minimal, so
-            # the extra dispatch cost is negligible here.
-            enable_debug_events=True,
             allowed_mentions=discord.AllowedMentions(
                 everyone=False, roles=False, users=True, replied_user=True
             ),
@@ -63,8 +45,6 @@ class ZeneBot(commands.Bot):
         self.triggers: TriggerRegistry = build_registry()
         self.failed_extensions: dict[str, str] = {}
         self.stats: Counter[str] = Counter()
-        # Rolling gateway RTT samples: an instant latency value hides stalls.
-        self._latency_ms: deque[float] = deque(maxlen=120)
         self.started_at = time.monotonic()
         self.ready_once = False
         self._send_semaphore = asyncio.Semaphore(8)
@@ -216,25 +196,6 @@ class ZeneBot(commands.Bot):
                 self.assets.command_count,
             )
             return True
-
-    # --------------------------------------------------------- latency stats --
-    async def on_socket_raw_receive(self, msg) -> None:
-        """Sample heartbeat RTT on inbound gateway traffic (no extra task)."""
-        latency = self.latency
-        if math.isfinite(latency):
-            self._latency_ms.append(latency * 1000)
-
-    def latency_stats(self) -> dict[str, float | None]:
-        """Recent gateway RTT in ms: latest, median and p95."""
-        if not self._latency_ms:
-            return {"latest_ms": None, "p50_ms": None, "p95_ms": None}
-        ordered = sorted(self._latency_ms)
-        size = len(ordered)
-        return {
-            "latest_ms": round(self._latency_ms[-1], 1),
-            "p50_ms": round(ordered[size // 2], 1),
-            "p95_ms": round(ordered[min(size - 1, int(size * 0.95))], 1),
-        }
 
     # --------------------------------------------------------------- events --
     async def on_ready(self) -> None:

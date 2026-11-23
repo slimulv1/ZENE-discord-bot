@@ -321,13 +321,6 @@ http://127.0.0.1:8080/health
 Thấy `status: ok` là tốt. Thấy `degraded` hoặc `503` nghĩa là bot chưa sẵn sàng
 hoặc có phần bị lỗi — xem log.
 
-JSON có thêm `latency_ms` (RTT HEARTBEAT↔HEARTBEAT_ACK của gateway) và
-`latency_p50_ms` / `latency_p95_ms` (trung vị / p95 của ~120 mẫu gần nhất) —
-dùng p95 để phát hiện các đợt event loop bị chậm thay vì chỉ nhìn một số tức thời.
-Bot chỉ bật các intent cần thiết (guild + message + message content), tắt member
-cache/chunking và giới hạn message cache để giảm tải gateway; phần lớn độ trễ còn
-lại là RTT mạng tới Discord, không thể sửa bằng code.
-
 Hai endpoint nhỏ cho hệ thống giám sát:
 
 - `/live` — chỉ trả lời "process còn sống", luôn `200` nếu server trả lời được.
