@@ -152,16 +152,30 @@ class AvWikiCog(commands.Cog):
             return
 
         name_jp = result["name"]
-        name_vi = await to_vietnamese(name_jp)
+        romaji = result.get("romaji") or ""
         embed = discord.Embed(
-            title=f"🌟 {name_vi or name_jp}",
+            title=f"🌟 {name_jp}{f' 【{romaji}】' if romaji else ''}",
             url=result["link"] or None,
-            description=(
-                f"{bilingual(name_jp, name_vi)}\n\n"
-                f"📚 Tổng **{result['count']}** tác phẩm được ghi nhận."
-            ),
+            description=f"📚 Tổng **{result['count']}** tác phẩm được ghi nhận.",
             color=discord.Colour.blurple(),
         )
+        if result.get("image"):
+            embed.set_thumbnail(url=result["image"])
+
+        # Profile fields shown in the reference card. av-wiki only provides
+        # some of them; missing values are shown as a dash, never invented.
+        profile = (
+            ("🏠 Đến từ", result.get("origin")),
+            ("📏 Số đo 3 vòng", result.get("measurements")),
+            ("📐 Chiều cao", result.get("height")),
+            ("🎂 Ngày sinh", result.get("birthdate")),
+            ("💚 Sở thích", result.get("hobbies")),
+            ("🔤 Tên khác", result.get("alias")),
+            ("📱 SNS", result.get("sns")),
+        )
+        for label, value in profile:
+            embed.add_field(name=label, value=_clip(value or "—", 200), inline=True)
+
         for work in result["works"][:4]:
             jp = clean_title(work["title"])
             vi = await to_vietnamese(jp)

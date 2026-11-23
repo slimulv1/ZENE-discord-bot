@@ -49,6 +49,76 @@ def parse_post(post: dict) -> dict:
     }
 
 
+def _dd(description: str, label: str) -> str:
+    """Extract the <dd> value that follows a Japanese <dt> label."""
+    match = re.search(
+        rf"<dt>\s*{re.escape(label)}.*?</dt>\s*<dd>(.*?)</dd>",
+        description,
+        re.S | re.I,
+    )
+    return _strip(match.group(1)) if match else ""
+
+
+def _clean_placeholder(value: str) -> str:
+    """av-wiki uses '- - -' for 'not available' — show nothing instead."""
+    value = value.strip()
+    return "" if not value or set(value) <= set("-–— ") else value
+
+
+def parse_idol_tag(tag: dict) -> dict:
+    """Parse the actress profile embedded in a WordPress tag description."""
+    description = str(tag.get("description") or "")
+    name = html.unescape(str(tag.get("name") or ""))
+    full_name = _dd(description, "AV女優名")
+
+    romaji = ""
+    match = re.search(r"[-–—]\s*([A-Za-z][A-Za-z\s'-]+?)\s*$", full_name)
+    if match:
+        romaji = match.group(1).strip()
+    if not romaji:
+        kana = re.search(r"[（(]([^）)]+)[）)]", full_name)
+        romaji = kana.group(1) if kana else ""
+
+    raw_birth = _dd(description, "生年月日")
+    birthdate = raw_birth
+    found = re.search(r"(\d{4})年\s*(\d{1,2})月\s*(\d{1,2})日", raw_birth)
+    if found:
+        birthdate = f"{int(found.group(3)):02d}/{int(found.group(2)):02d}/{found.group(1)}"
+
+    raw_size = _dd(description, "サイズ")
+    height = ""
+    found_height = re.search(r"T\s*(\d+)", raw_size, re.I)
+    if found_height:
+        height = f"{found_height.group(1)} cm"
+    found_triple = re.search(r"B\s*(\d+)[\s\-–xX]+W\s*(\d+)[\s\-–xX]+H\s*(\d+)", raw_size, re.I)
+    measurements = ""
+    if found_triple:
+        measurements = " / ".join(found_triple.groups())
+
+    image = re.search(r'<img[^>]+src=["\']([^"\']+)', description)
+
+    sns = _dd(description, "SNS")
+    # "X： - - - 　Instagram： - - -" means no accounts — hide it.
+    if not re.sub(r"(?i)\b(x|instagram|twitter)\b|[:：\s\-\u2013\u2014]", "", sns):
+        sns = ""
+
+    return {
+        "name": name,
+        "romaji": romaji,
+        "birthdate": birthdate,
+        "height": height,
+        "measurements": measurements or _clean_placeholder(raw_size),
+        # av-wiki tag payload does not expose birthplace or hobbies.
+        "origin": "",
+        "hobbies": "",
+        "alias": _clean_placeholder(_dd(description, "別名義")),
+        "sns": sns,
+        "image": image.group(1) if image else "",
+        "link": str(tag.get("link", "")),
+        "count": tag.get("count", 0),
+    }
+
+
 async def dmm_image(code: str, api_id: str, affiliate_id: str) -> str:
     """Fallback cover URL from FANZA/DMM. Credentials come from env-backed Config."""
     if not code or not api_id or not affiliate_id:
@@ -195,11 +265,7 @@ async def search_idol(name: str, limit: int = 5) -> dict | None:
     posts_url = f"{BASE}/posts?{urlencode({'tags': tag['id'], 'per_page': limit})}"
     posts = await fetch_json(posts_url, name="avwiki")
     works = [parse_post(item) for item in posts] if isinstance(posts, list) else []
-    result = {
-        "name": html.unescape(str(tag.get("name", ""))),
-        "link": str(tag.get("link", "")),
-        "count": tag.get("count", 0),
-        "works": works,
-    }
+    result = parse_idol_tag(tag)
+    result["works"] = works
     _LOOKUP_CACHE[key] = result
     return result
