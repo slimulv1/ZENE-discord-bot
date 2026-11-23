@@ -13,7 +13,7 @@ from zene_core.cogs.conversation import ConversationCog
 from zene_core.cogs.embedfix import EmbedFixCog, _bot_badge_url, _compose_avatar_bytes
 from zene_core.config import Config
 from zene_core.content import fresh_commands, prepare_reload, reload_data
-from zene_core.embedfix.guards import canonicalize, is_asset_url, rewrite_tiktok_link, url_hash
+from zene_core.embedfix.guards import canonicalize, is_asset_url, rewrite_social_link, url_hash
 from zene_core.embedfix.models import ProbeResult
 from zene_core.embedfix.modifiers import parse_modifiers
 from zene_core.embedfix.proxy_adapters import (
@@ -314,12 +314,32 @@ class TiktokAdapterTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.kind, "video")
         self.assertEqual(len(result.media_urls), 1)
 
-    def test_tiktok_link_rewrite(self) -> None:
-        self.assertEqual(
-            rewrite_tiktok_link("https://www.tiktok.com/@a/video/123?utm_source=x&u_code=y"),
-            "https://www.tnktok.com/@a/video/123",
+    def test_social_link_rewrite(self) -> None:
+        cases = (
+            (
+                "https://www.tiktok.com/@a/video/123?utm_source=x",
+                "https://www.tnktok.com/@a/video/123",
+            ),
+            (
+                "https://x.com/a/status/123?s=20",
+                "https://fixupx.com/a/status/123",
+            ),
+            (
+                "https://twitter.com/a/status/123?s=20",
+                "https://fxtwitter.com/a/status/123",
+            ),
+            (
+                "https://www.instagram.com/p/x/?utm_source=a",
+                "https://oginstagram.com/p/x/",
+            ),
+            (
+                "https://www.facebook.com/reel/123?comment_id=9",
+                "https://www.facebed.com/reel/123?comment_id=9",
+            ),
         )
-        self.assertEqual(rewrite_tiktok_link("https://instagram.com/p/x"), "")
+        for raw, expected in cases:
+            self.assertEqual(rewrite_social_link(raw), expected)
+        self.assertEqual(rewrite_social_link("https://reddit.com/r/a"), "")
 
 
 class RouterTests(unittest.TestCase):

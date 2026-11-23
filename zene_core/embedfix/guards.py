@@ -109,20 +109,40 @@ async def canonicalize(
     return str(clean)
 
 
-def rewrite_tiktok_link(url: str) -> str:
-    """Rewrite a TikTok post to the fxTikTok mirror for Discord's unfurl.
+# Mirrors that make Discord's own unfurl render playable media. Last resort
+# when every bot-side adapter fails — no download/upload needed.
+SOCIAL_MIRRORS = {
+    "tiktok.com": "www.tnktok.com",
+    "x.com": "fixupx.com",
+    "twitter.com": "fxtwitter.com",
+    "instagram.com": "oginstagram.com",
+    "facebook.com": "www.facebed.com",
+    "fb.com": "www.facebed.com",
+}
+# facebed needs comment_id / story_fbid query params to find the post.
+PRESERVE_QUERY = frozenset({"facebook.com", "fb.com"})
 
-    Used as a last resort: Discord itself renders the mirrored link with a
-    playable video, so no bot-side download/upload is needed.
-    """
+
+def rewrite_social_link(url: str) -> str:
+    """Rewrite a social post to a public embed mirror for Discord unfurl."""
     try:
         parsed = URL(url)
     except ValueError:
         return ""
     host = (parsed.host or "").lower()
-    if registrable(host) != "tiktok.com":
+    domain = registrable(host)
+    mirror = SOCIAL_MIRRORS.get(domain)
+    if mirror is None:
         return ""
-    return str(parsed.with_host("www.tnktok.com").with_query(None).with_fragment(None))
+    result = parsed.with_host(mirror).with_fragment(None)
+    if domain not in PRESERVE_QUERY:
+        result = result.with_query(None)
+    return str(result)
+
+
+def rewrite_tiktok_link(url: str) -> str:
+    """Backward-compatible alias used by older callers/tests."""
+    return rewrite_social_link(url)
 
 
 def is_asset_url(

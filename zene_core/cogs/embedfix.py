@@ -15,7 +15,7 @@ from discord.ext import commands
 
 from ..avwiki import looks_vietnamese, to_vietnamese
 from ..embedfix.adapters import MetaAdapter, YtDlpAdapter
-from ..embedfix.guards import canonicalize, is_asset_url, rewrite_tiktok_link, url_hash
+from ..embedfix.guards import canonicalize, is_asset_url, rewrite_social_link, url_hash
 from ..embedfix.models import LinkContext, ProbeResult
 from ..embedfix.modifiers import LINK_RE, parse_modifiers
 from ..embedfix.proxy_adapters import (
@@ -338,7 +338,7 @@ class EmbedFixCog(commands.Cog):
             if result is None:
                 # Last resort for TikTok: let Discord unfurl the fxTikTok
                 # mirror itself instead of telling the user we failed.
-                rewritten = rewrite_tiktok_link(ctx.canonical)
+                rewritten = rewrite_social_link(ctx.canonical)
                 if rewritten:
                     await ctx.message.channel.send(content=rewritten)
                     await self._replace(ctx.message)
