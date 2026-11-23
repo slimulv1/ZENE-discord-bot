@@ -18,8 +18,11 @@ if (-not $env:DISCORD_TOKEN) {
     Write-AutostartLog 'DISCORD_TOKEN missing — run install-autostart.ps1 once.'
     exit 1
 }
+if (-not $env:ZENE_OWNER_IDS) {
+    Write-AutostartLog 'ZENE_OWNER_IDS missing — run install-autostart.ps1 once.'
+    exit 1
+}
 
-$env:ZENE_OWNER_IDS = '374186828174983169'
 $env:ZENE_MEDIA_LINKS_ENABLED = 'true'
 $env:ZENE_MEDIA_ALLOWED_DOMAINS = 'x.com,instagram.com,facebook.com,tiktok.com,youtube.com'
 $env:ZENE_MEDIA_USE_PROXIES = 'true'

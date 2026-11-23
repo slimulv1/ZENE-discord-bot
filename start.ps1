@@ -1,8 +1,8 @@
 <#
 Khởi động ZENE bot trên Windows.
 
-Token KHÔNG được lưu trong file này. Khi chạy, script sẽ hỏi token ẩn
-(hoặc dùng $env:DISCORD_TOKEN nếu bạn đã đặt trong phiên PowerShell hiện tại).
+Token KHÔNG được lưu trong file này. Khi chạy, script sẽ hỏi token ẩn và ID Discord
+(hoặc dùng các biến $env:DISCORD_TOKEN / $env:ZENE_OWNER_IDS nếu đã đặt sẵn).
 #>
 Set-Location -LiteralPath $PSScriptRoot
 $ErrorActionPreference = 'Stop'
@@ -12,7 +12,14 @@ if (-not $env:DISCORD_TOKEN) {
     $env:DISCORD_TOKEN = [System.Net.NetworkCredential]::new('', $secure).Password
 }
 
-$env:ZENE_OWNER_IDS = '374186828174983169'
+if (-not $env:ZENE_OWNER_IDS) {
+    $ownerInput = Read-Host 'ZENE_OWNER_IDS - Discord user ID (numeric)'
+    if ($ownerInput -notmatch '^[0-9]+$') {
+        throw 'ZENE_OWNER_IDS must be a numeric Discord ID'
+    }
+    $env:ZENE_OWNER_IDS = $ownerInput
+}
+
 $env:ZENE_MEDIA_LINKS_ENABLED = 'true'
 $env:ZENE_MEDIA_ALLOWED_DOMAINS = 'x.com,instagram.com,facebook.com,tiktok.com,youtube.com'
 $env:ZENE_MEDIA_USE_PROXIES = 'true'

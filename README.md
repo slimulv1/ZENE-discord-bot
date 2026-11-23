@@ -69,7 +69,7 @@ Nhớ điền luôn `ZENE_OWNER_IDS=` bằng ID Discord của bạn để dùng 
 > đừng gửi token cho ai, và nếu lỡ lộ thì Reset Token trong Discord ngay.
 
 **Khởi động nhanh trên Windows:** chạy `.\start.ps1` trong thư mục dự án. Script đã
-thiết lập sẵn các biến môi trường và chỉ **hỏi token ẩn khi chạy** — token không được
+thiết lập sẵn các biến môi trường và **hỏi token ẩn + ID Discord khi chạy** — token không được
 lưu vào file, nên lần sau bạn không phải dán lại cả lệnh dài:
 
 ```powershell
@@ -82,7 +82,7 @@ Nếu PowerShell chặn chạy script, dùng:
 
 ### Tự chạy khi Windows khởi động / đăng nhập
 
-Chạy **một lần** (sẽ hỏi token ẩn rồi lưu vào biến môi trường USER, không ghi vào repo):
+Chạy **một lần** (sẽ hỏi token ẩn + ID Discord rồi lưu vào biến môi trường USER, không ghi vào repo):
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File .\install-autostart.ps1

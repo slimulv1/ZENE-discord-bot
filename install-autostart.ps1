@@ -1,7 +1,7 @@
 <#
 Setup MỘT LẦN cho Windows autostart:
-1. Hỏi token ẩn và lưu vào biến môi trường USER (registry) — KHÔNG lưu trong repo.
-2. Đăng kýScheduled Task chạy zene-autostart.ps1 mỗi lần đăng nhập.
+1. Hỏi token ẩn + ID Discord và lưu vào biến môi trường USER (registry) — KHÔNG ghi file/repo.
+2. Đăng ký Scheduled Task chạy zene-autostart.ps1 mỗi lần đăng nhập.
 
 Chạy: powershell -NoProfile -ExecutionPolicy Bypass -File .\install-autostart.ps1
 #>
@@ -12,8 +12,17 @@ if (-not $env:DISCORD_TOKEN) {
     $env:DISCORD_TOKEN = [System.Net.NetworkCredential]::new('', $secure).Password
 }
 
+if (-not $env:ZENE_OWNER_IDS) {
+    $ownerInput = Read-Host 'ZENE_OWNER_IDS - Discord user ID (numeric)'
+    if ($ownerInput -notmatch '^[0-9]+$') {
+        throw 'ZENE_OWNER_IDS must be a numeric Discord ID'
+    }
+    $env:ZENE_OWNER_IDS = $ownerInput
+}
+
 # Persist for future logons, outside the repository.
 [Environment]::SetEnvironmentVariable('DISCORD_TOKEN', $env:DISCORD_TOKEN, 'User')
+[Environment]::SetEnvironmentVariable('ZENE_OWNER_IDS', $env:ZENE_OWNER_IDS, 'User')
 
 $taskName = 'ZENE Bot'
 $runner = Join-Path $PSScriptRoot 'zene-autostart.ps1'
@@ -30,5 +39,5 @@ $settings = New-ScheduledTaskSettingsSet `
     -StartWhenAvailable
 
 Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force | Out-Null
-Write-Host "OK: task '$taskName' will start on logon. Token saved in USER environment variable (not in repo)."
+Write-Host "OK: task '$taskName' will start on logon. Token + owner ID saved in USER environment variables (not in repo)."
 Write-Host "Stop manually: Stop-ScheduledTask -TaskName '$taskName'"
