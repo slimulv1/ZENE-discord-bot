@@ -6,6 +6,14 @@
 > yt-dlp adapter có sẵn nhưng mặc định tắt (`ZENE_MEDIA_USE_YTDLP=false`).
 > Mục tiêu: bot tự nhận link TikTok / X / Instagram / Facebook do người dùng gửi
 > và trả đúng ảnh hoặc video.
+>
+> **Thiết kế chiến lược & nghiên cứu hướng dẫn dài:** [docs/ZENE_SOCIAL_DESIGN.md](ZENE_SOCIAL_DESIGN.md) —
+> xếp hạng thiết kế (≈90 điểm), cấu trúc UX Components V2, decision tree adapter, bảng config,
+> và kế hoạch 15→90 điểm dựa trên bằng chứng thực tế Discord 2026-11.
+>
+> **Thiết kế tham khảo (design strategy):** [docs/ZENE_SOCIAL_DESIGN.md](ZENE_SOCIAL_DESIGN.md) —
+> cấu trúc UX, decision tree component, bảng config và kế hoạch 15→90 điểm dựa trên
+> bằng chứng Discord 2026-current.
 
 ---
 
