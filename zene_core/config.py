@@ -159,6 +159,8 @@ class Config:
     media_strict_nsfw: bool = True
     media_suppress: bool = False
     media_use_ytdlp: bool = False
+    media_cta: bool = True  # link button 'Xem bài gốc' under media
+    media_spoiler_default_channels: frozenset[int] = frozenset()  # channels spoiler by default
     media_lang: str = "vi"
     media_auto_translate: bool = True
     media_use_proxies: bool = True  # enabled together with link embedding by default
@@ -263,6 +265,12 @@ class Config:
             media_queue_size=max(4, _env_int(env, "ZENE_MEDIA_QUEUE_SIZE", 32)),
             media_strict_nsfw=_env_bool(env, "ZENE_MEDIA_STRICT_NSFW", True),
             media_suppress=_env_bool(env, "ZENE_MEDIA_SUPPRESS", False),
+            media_cta=_env_bool(env, "ZENE_MEDIA_CTA", True),
+            media_spoiler_default_channels=frozenset(
+                int(value)
+                for value in _env_csv(env, "ZENE_MEDIA_SPOILER_DEFAULT_CHANNELS")
+                if value.isdigit()
+            ),
             media_use_ytdlp=_env_bool(env, "ZENE_MEDIA_USE_YTDLP", False),
             media_lang=_clean(env.get("ZENE_MEDIA_LANG")) or "vi",
             media_auto_translate=_env_bool(env, "ZENE_MEDIA_AUTO_TRANSLATE", True),

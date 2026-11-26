@@ -71,7 +71,7 @@ def _tracking(key: str) -> bool:
 async def _resolve_short(url: URL, timeout: float) -> URL:
     session = await get_session()
     async with session.head(
-        str(url), allow_redirects=True, max_redirects=3, timeout=timeout
+        str(url), allow_redirects=True, max_redirects=5, timeout=timeout
     ) as response:
         return URL(str(response.url))
 

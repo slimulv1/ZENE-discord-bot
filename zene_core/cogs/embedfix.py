@@ -367,7 +367,9 @@ class EmbedFixCog(commands.Cog):
         if not self._nsfw_allowed(ctx, result):
             return
 
-        spoiler = "spoiler" in ctx.modifiers
+        spoiler = "spoiler" in ctx.modifiers or (
+            ctx.message.channel.id in self.cfg.media_spoiler_default_channels
+        )
         hide_quote = "hide_quote" in ctx.modifiers
         title = result.title
         body = result.context
@@ -391,6 +393,7 @@ class EmbedFixCog(commands.Cog):
             hide_quote=hide_quote,
             title=title,
             context=body,
+            send_cta=self.cfg.media_cta,
         )
         if self.cfg.media_suppress:
             await self._suppress(ctx.message)

@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import html
 import logging
+import os
 import re
 from collections.abc import Iterable
 from urllib.parse import urlencode
@@ -20,8 +21,10 @@ from .models import ProbeResult
 log = logging.getLogger(__name__)
 
 # Short-lived negative cache: a dead shortcode should not cost 5s on every resend.
-_IFX_MISS_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
-_TIKTOK_MISS_CACHE: TTLCache = TTLCache(maxsize=256, ttl=300)
+# TTL tunable via ZENE_MEDIA_NEG_CACHE_TTL (default 300s).
+_NEG_CACHE_TTL = max(60, int(os.environ.get("ZENE_MEDIA_NEG_CACHE_TTL", "300")))
+_IFX_MISS_CACHE: TTLCache = TTLCache(maxsize=256, ttl=_NEG_CACHE_TTL)
+_TIKTOK_MISS_CACHE: TTLCache = TTLCache(maxsize=256, ttl=_NEG_CACHE_TTL)
 
 X_STATUS_RE = re.compile(r"^/([^/]+)/status/(\d+)")
 IG_SHORTCODE_RE = re.compile(r"^/(?:p|reel|reels)/([^/?]+)")
@@ -97,7 +100,9 @@ class FxEmbedAdapter:
             return ProbeResult("none", "", "", page_url=url)
         user, status_id = parts
         payload = await fetch_json(
-            f"https://api.fxtwitter.com/{user}/status/{status_id}", name="fxtwitter"
+            f"https://api.fxtwitter.com/{user}/status/{status_id}",
+            name="fxtwitter",
+            timeout=timeout,
         )
         tweet = payload.get("tweet") if isinstance(payload, dict) else None
         if not isinstance(tweet, dict):

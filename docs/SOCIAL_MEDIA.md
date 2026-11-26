@@ -150,6 +150,10 @@ Không bao giờ mặc định `replace`.
 | `ZENE_MEDIA_MAX_BYTES` | `8388608` | Giới hạn file (theo Discord) |
 | `ZENE_MEDIA_TIMEOUT` | `25` | Timeout tải một link |
 | `ZENE_MEDIA_CACHE_TTL` | `3600` | TTL cache theo hash URL |
+| `ZENE_MEDIA_DIRECT_VIDEO_TTL` | `300` | TTL cache video trực tiếp |
+| `ZENE_MEDIA_NEG_CACHE_TTL` | `300` | TTL cache lỗi (ifx/TikTok miss cache, min 60) |
+| `ZENE_MEDIA_CTA` | `true` | Hiện nút link "Xem bài gốc" dưới media |
+| `ZENE_MEDIA_SPOILER_DEFAULT_CHANNELS` | rỗng | Danh sách channel id, spoiler mặc định theo kênh |
 | `ZENE_MEDIA_WORKERS` | `1` | Số worker tải cùng lúc |
 | `ZENE_MEDIA_QUEUE_SIZE` | `32` | Giới hạn hàng đợi, vượt thì bỏ link + đếm `dropped` |
 | `ZENE_MEDIA_STRICT_NSFW` | `true` | Không rõ nhạy cảm thì coi như NSFW |

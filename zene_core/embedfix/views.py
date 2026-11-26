@@ -88,6 +88,13 @@ class CarouselView(discord.ui.LayoutView):
         await interaction.response.edit_message(view=self)
 
 
+def _attach_cta(view: discord.ui.LayoutView, url: str) -> None:
+    row = discord.ui.ActionRow(
+        discord.ui.Button(style=discord.ButtonStyle.link, label="Xem bài gốc", url=url)
+    )
+    view.add_item(row)
+
+
 def build_view(
     result: ProbeResult,
     *,
@@ -95,37 +102,41 @@ def build_view(
     hide_quote: bool = False,
     title: str | None = None,
     context: str | None = None,
+    send_cta: bool = True,
 ) -> discord.ui.LayoutView:
     heading = title or result.title
     body = context if context is not None else result.context
     media = result.media_urls[:MAX_ITEMS]
 
     if result.kind == "gallery" and len(media) > 1:
-        return CarouselView(
+        view = CarouselView(
             media,
             title=heading or "",
             context=body or "",
             spoiler=spoiler,
             hide_quote=hide_quote,
         )
+    else:
+        view = discord.ui.LayoutView(timeout=180)
+        container = discord.ui.Container(accent_colour=discord.Colour.blurple())
 
-    view = discord.ui.LayoutView(timeout=180)
-    container = discord.ui.Container(accent_colour=discord.Colour.blurple())
+        parts: list[str] = []
+        if heading:
+            suffix = f" — {result.author}" if result.author else ""
+            parts.append(f"**{heading}**{suffix}")
+        if body and not hide_quote:
+            parts.append(body)
+        if parts:
+            container.add_item(discord.ui.TextDisplay("\n".join(parts)[:MAX_TEXT]))
 
-    parts: list[str] = []
-    if heading:
-        suffix = f" — {result.author}" if result.author else ""
-        parts.append(f"**{heading}**{suffix}")
-    if body and not hide_quote:
-        parts.append(body)
-    if parts:
-        container.add_item(discord.ui.TextDisplay("\n".join(parts)[:MAX_TEXT]))
+        gallery = discord.ui.MediaGallery()
+        for url in result.media_urls[:MAX_ITEMS]:
+            gallery.add_item(media=url, spoiler=spoiler)
+        container.add_item(gallery)
+        view.add_item(container)
 
-    gallery = discord.ui.MediaGallery()
-    for url in result.media_urls[:MAX_ITEMS]:
-        gallery.add_item(media=url, spoiler=spoiler)
-    container.add_item(gallery)
-    view.add_item(container)
+    if send_cta and result.page_url:
+        _attach_cta(view, result.page_url)
     return view
 
 
