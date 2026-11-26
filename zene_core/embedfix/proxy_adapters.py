@@ -1,4 +1,9 @@
-"""No-yt-dlp adapters using direct URLs and public embed proxies."""
+"""Adapter không cần yt-dlp: URL trực tiếp + proxy embed công khai.
+
+Tiếng Việt: Adapter nguồn trực tiếp/mirror (FxEmbed, Ifx, OgInstagram,
+Facebed, TiktokProxy, Tikwm, XDirect...) không tải media; trả `ProbeResult`.
+日本語: 公式API代替プロキシ・ミラー系アダプタ。メディア本体は取得しない。
+"""
 
 from __future__ import annotations
 

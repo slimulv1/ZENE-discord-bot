@@ -1,7 +1,9 @@
-"""Per-link modifier parser.
+"""Bộ dò modifier cho từng link.
 
-Modifiers live in the text *around* a URL, never inside it. Parsing only the
-outside text prevents a `~` or `||` in a query string from corrupting the link.
+Tiếng Việt: modifier nằm NGOÀI link (không trong query, tránh hỏng URL);
+`||` spoiler, `~` hide_quote, `文` dịch,
+`^` parent, `xx:` ngôn ngữ; không sửa URL trong query.
+日本語: URLの外側の修飾語。`||`ネタバレ・`~`引用非表示・`文`翻訳・`^`parent・`xx:`言語。
 """
 
 from __future__ import annotations

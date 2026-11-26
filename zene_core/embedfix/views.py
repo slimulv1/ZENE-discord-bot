@@ -1,4 +1,9 @@
-"""Builders for Discord Components V2 messages."""
+"""Dựng tin nhắn Discord Components V2.
+
+Tiếng Việt: `build_view` dựng `LayoutView` + `MediaGallery`, `CarouselView`
+1 ảnh + ◀/▶, `MAX_ITEMS=9`, `_attach_cta` nút "Xem bài gốc", spoiler, `fallback_text`.
+日本語: `build_view`・`CarouselView`・CTAボタン・`fallback_text`。最大9枚。
+"""
 
 from __future__ import annotations
 

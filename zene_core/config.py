@@ -1,7 +1,8 @@
-"""Single source of truth for runtime configuration.
+"""Cấu hình runtime — nguồn sự thật duy nhất.
 
-Security rule: secrets come from environment variables. ``TOKEN.json`` is only
-used as a *migration fallback* and its value is never logged (``repr=False``).
+Tiếng Việt: `Config.from_env()` — mọi cấu hình từ env; secret chỉ từ env,
+TOKEN.json chỉ migration, không log giá trị secret. Biến `ZENE_MEDIA_*` cho embed.
+日本語: `Config.from_env()`。シークレットは env のみ。`ZENE_MEDIA_*` が埋め込み設定。
 """
 
 from __future__ import annotations

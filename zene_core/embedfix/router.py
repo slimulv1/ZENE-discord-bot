@@ -1,4 +1,9 @@
-"""Domain-based adapter routing — avoids fetching pages we do not need."""
+"""Routing adapter theo domain — tránh fetch trang không cần.
+
+Tiếng Việt: `route_for` chọn adapter theo domain (X→fxtwitter/x-direct/meta,
+IG→ifx/oginstagram/meta, FB→facebed/meta, TikTok→tnktok/tikwm/meta).
+日本語: ドメイン→アダプタのルーティング。不要なページ取得を避ける。
+"""
 
 from __future__ import annotations
 

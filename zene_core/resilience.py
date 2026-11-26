@@ -1,7 +1,9 @@
 """Small, dependency-free resilience primitives used across the bot.
 
-Everything here is async-safe and event-loop friendly: delays use
-``asyncio.sleep``, never ``time.sleep``.
+Tiếng Việt: RetryPolicy (backoff + jitter), CircuitBreaker
+CLOSED→OPEN→HALF_OPEN, TokenBucket, with_timeout — không chặn event loop;
+không dùng `time.sleep`, dùng `asyncio.sleep`.
+日本語: RetryPolicy・サーキットブレーカー・トークンバケット・timeout。`asyncio.sleep`。event loopを止めない。
 """
 
 from __future__ import annotations

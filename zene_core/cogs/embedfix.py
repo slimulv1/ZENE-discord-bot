@@ -1,4 +1,11 @@
-"""Social-media link embed fixer cog (disabled by default)."""
+"""Cog tạo embed cho link social (tắt mặc định).
+
+Tiếng Việt: Bật `ZENE_MEDIA_LINKS_ENABLED=true`, bắt link X/IG/FB/TikTok → dò
+nguồn trực tiếp/mirror → dựng Components V2 `MediaGallery`/`CarouselView` +
+nút CTA "Xem bài gốc"; spoiler theo kênh; `||`,`~`,`文`,`^`,`lang:`; NSFW; cache.
+日本語: `ZENE_MEDIA_LINKS_ENABLED=true`。X/IG/FB/TikTokリンクを探索し
+Components V2 `MediaGallery`/`CarouselView` + CTAボタンで表示。ネタバレ・NSFW・キャッシュ対応。
+"""
 
 from __future__ import annotations
 

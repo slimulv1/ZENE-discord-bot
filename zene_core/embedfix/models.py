@@ -1,4 +1,9 @@
-"""Data models for the link embedder."""
+"""Mô hình dữ liệu cho link embedder.
+
+Tiếng Việt: `LinkContext` (tin nhắn, link, modifier, media_hints) +
+`ProbeResult` (kind, title, author, media, nsfw, page_url).
+日本語: `LinkContext` + `ProbeResult`。kind=image/video/gallery/link/none。nsfw=None=不明。
+"""
 
 from __future__ import annotations
 

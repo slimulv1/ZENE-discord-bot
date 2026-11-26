@@ -1,4 +1,9 @@
-"""Process supervisor: supervised restarts, backoff, and a dependency-free health endpoint."""
+"""Supervisor.
+
+Tiếng Việt: restart backoff + jitter, reset sau stable, max_restarts,
+health `/health` `/ready` `/live` `/status`.
+日本語: バックオフ + ジッター再起動、安定後リセット、max_restarts、ヘルスチェック。
+"""
 
 from __future__ import annotations
 

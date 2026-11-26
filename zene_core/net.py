@@ -1,8 +1,8 @@
 """Shared async HTTP layer with a single aiohttp session.
 
-Why: discord.py already ships aiohttp. Reusing one ClientSession avoids a new
-TCP/TLS handshake per command and keeps DNS cached, which matters for the
-24/7 uptime goal. All calls still go through the circuit breaker registry.
+Tiếng Việt: Lớp HTTP bất đồng bộ dùng chung một `aiohttp` session, có retry +
+circuit breaker để không treo sự kiện; trả `None` khi dependency hỏng.
+日本語: 共有 `aiohttp` セッション + 再試行 + サーキットブレーカー。依存が壊れたら `None`。
 """
 
 from __future__ import annotations

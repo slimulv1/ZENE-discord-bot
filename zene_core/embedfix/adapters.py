@@ -1,4 +1,9 @@
-"""Platform adapters: cheap metadata probes before any download."""
+"""Adapter nền tảng: dò metadata rẻ trước khi tải.
+
+Tiếng Việt: `_MetaParser` đọc og:/twitter: meta (trong ~2MB head),
+`MetaAdapter` dò media trực tiếp, `YtDlpAdapter` (tắt mặc định, to_thread).
+日本語: `_MetaParser`（~2MB headのメタ）+ `MetaAdapter` + `YtDlpAdapter`（既定OFF）。
+"""
 
 from __future__ import annotations
 

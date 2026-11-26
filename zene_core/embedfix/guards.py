@@ -1,4 +1,10 @@
-"""URL validation, canonicalisation and SSRF guard for the embed fixer."""
+"""Kiểm tra URL, chuẩn hóa và chặn SSRF cho embed fixer.
+
+Tiếng Việt: Chặn IP private/IP literal, domain allowlist, xóa tracking
+(fbclid, utm...), resolve shortener (≤5 redirect), mirror `rewrite_social_link`,
+`is_asset_url` suffix CDN + `url_hash`.
+日本語: SSRF防止・ドメイン許可リスト・追跡パラメータ除去・短縮URL解決・ミラー書き換え。
+"""
 
 from __future__ import annotations
 

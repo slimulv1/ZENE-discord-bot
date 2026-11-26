@@ -1,4 +1,9 @@
-"""The bot subclass: boot, load, observe, degrade, shut down cleanly."""
+"""ZeneBot.
+
+Tiếng Việt: boot, load cog, event, `safe_send` không ném lỗi,
+hot-reload memes.json, đóng gracefully.
+日本語: 起動・cog読込・イベント・安全送信・ホットリロード・安全終了。
+"""
 
 from __future__ import annotations
 
